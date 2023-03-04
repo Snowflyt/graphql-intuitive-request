@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "ESNext",
+    "rootDirs": ["src", "test"],
+    "moduleResolution": "node",
+    "outDir": "./build/",
+    "declaration": true,
+    "declarationDir": "./build/types/",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "skipLibCheck": true
+  },
+  "ts-node": {
+    "esm": true
+  },
+  "exclude": ["./jest.config.ts", "./test/**/*", "./build/**/*"]
+}

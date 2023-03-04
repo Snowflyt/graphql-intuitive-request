@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "1.0.0",
+  "version": "0.0.1-dev.20230304",
   "description": "",
   "main": "./build/index.js",
   "types": "./build/types/index.d.ts",

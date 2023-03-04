@@ -277,12 +277,219 @@ As is shown in the proceeding example, you can partially apply the action name t
 
 graphql-intuitive-request is built on top of `graphql-request`, so you can use all the features of `graphql-request` with graphql-intuitive-request.
 
-You can get the `GraphQLClient` instance from graphql-intuitive-request by calling the `getGraphQLClient()` method on the `GraphQLIntuitiveRequest` instance.
+You can get the `GraphQLClient` instance from graphql-intuitive-request by calling the `getGraphQLClient()` method on the `GraphQLIntuitiveClient` instance.
 
 ```typescript
-const graphQLIntuitiveClient = new GraphQLIntuitiveRequest(
+const graphQLIntuitiveClient = new GraphQLIntuitiveClient(
   'http://example.com/graphql',
 );
 
 const graphQLClient = graphQLIntuitiveClient.getGraphQLClient();
+```
+
+## Future plans
+
+Remember that these are just plans, and you cannot use them yet.
+
+### Support for passing variables without passing types
+
+Currently, graphql-intuitive-request requires you to pass the types of variables to the query or mutation, so when you write the actual values of variables, you can make full use of the type system to avoid mistakes and use the auto-completion feature of your IDE/editor. You can also enjoy the benefits of easy encapsulation with type checking by passing the types of variables.
+
+However, sometimes you may want to use a query or mutation only once, and you don't want to define the types of variables. In this case, you can just pass the actual values of variables without passing the types of variables.
+
+For example, some planning APIs may have a query like this:
+
+```typescript
+const updatedRole = await client.mutation(Role)(
+  'role',
+  (role) => [role.id, role.name],
+  { id: ID(1) },
+);
+```
+
+This time, you cannot enjoy the benefits of auto-completion and type checking. Also, you still have to use `ID(1)` or something like this to indicate the type of the variable, which is unavoidable because it is impossible to infer the GraphQL type of some variables. For example, we cannot infer whether a `number` is a GraphQL `Int` or a GraphQL `Float`, and whether a `string` is a GraphQL `String` or a GraphQL `ID`, so in such cases, you have to use `ID(1)` or `Int(1)` to indicate the type of the variable. GraphQL is strongly typed, so it is still necessary to indicate the type of the variable.
+
+### Support for subscriptions
+
+GraphQL subscriptions are not supported yet, but they may be supported in the future.
+
+Some planning APIs may have look like this:
+
+```typescript
+const onCommentAddedSubscription = client.subscription(Comment, {
+  postId: Int,
+})('commentAdded', (comment) => [comment.id, comment.content], { postId: 1 });
+
+const unsubscribe = onCommentAddedSubscription.subscribe((data) => {
+  console.log(data.id, data.content);
+});
+
+unsubscribe();
+```
+
+### Support for fragments
+
+Currently, you can define something like this to achieve limited support for fragments:
+
+```typescript
+const characterFields = (character: QueryBuilder<Character>) => [
+  character.name,
+  character.appearsIn,
+];
+
+const hero = await client.query(Character, { episode: Episode })(
+  'hero',
+  characterFields,
+  { episode: 'JEDI' },
+);
+```
+
+However, you cannot define fragments like this:
+
+```graphql
+fragment CharacterFields on Character {
+  name
+  appearsIn
+}
+
+query HeroAndFriends {
+  hero(episode: EMPIRE) {
+    ...CharacterFields
+    friends {
+      ...CharacterFields
+    }
+  }
+}
+```
+
+In the future, you may be able to define fragments like this:
+
+```typescript
+import { createFragmentOn } from 'graphql-intuitive-request';
+
+const characterFields = createFragmentOn(Character, (character) => [
+  character.name,
+  character.appearsIn,
+]);
+
+const hero = await client.query(Character, { episode: Episode })(
+  'hero',
+  (hero) => [
+    hero.$spread(characterFields),
+    hero.friends((friend) => [friend.$spread(characterFields)]),
+  ],
+  { episode: 'JEDI' },
+);
+```
+
+For inline fragments like this:
+
+```graphql
+query {
+  animals {
+    ... on Dog {
+      name
+      breed
+    }
+    ... on Cat {
+      name
+      color
+    }
+  }
+}
+```
+
+You may be able to define them like this:
+
+```typescript
+import { createFragmentOn } from 'graphql-intuitive-request';
+
+const dogFields = createFragmentOn(Dog, (dog) => [dog.name, dog.breed]);
+const catFields = createFragmentOn(Cat, (cat) => [cat.name, cat.color]);
+
+const animals = await client.query([Animal])('animals', (animal) => [
+  animal.$spreadOn(Dog, (dog) => [dog.$spread(dogFields)]),
+  animal.$spreadOn(Cat, (cat) => [cat.$spread(catFields)]),
+]);
+```
+
+For the `$on()` method, it is likely that only subclasses of the base class will be supported.
+
+### Support for directives
+
+graphql-intuitive-request currently does not support directives. In the future, you may be able use directives.
+
+For example, for graphql queries like this:
+
+```graphql
+query Hero($episode: Episode, $withHeight: Boolean!, $withFriends: Boolean!) {
+  hero(episode: $episode) {
+    name
+    height @include(if: $withHeight)
+    friends @include(if: $withFriends) {
+      name
+    }
+  }
+}
+```
+
+You may be able to write code like this:
+
+```typescript
+const hero = await client.query(Character, {
+  episode: Nullable(Episode),
+  withHeight: Boolean,
+  skipFriends: Boolean,
+})(
+  'hero',
+  (hero, variables) => [
+    hero.name,
+    hero.height.include$({
+      if: variables.withHeight,
+    }),
+    hero
+      .friends((friend) => [friend.name])
+      .skip$({
+        if: variables.skipFriends,
+      }),
+  ],
+  { episode: 'JEDI', withHeight: true, skipFriends: false },
+);
+```
+
+However, now typescript cannot determine whether `height` and `friends` are `undefined` or not by the type of `variables` (It is technically possible, but we have to add the `const` modifier to the `variables` parameter, and then you cannot pass a dynamic object to the `variables` parameter any more. However, in real-world applications, the variables are usually dynamic objects, so we cannot do this). So, you have to handle the case yourself.
+
+Custom directives may also be supported.
+
+```typescript
+const client = new GraphQLIntuitiveClient('http://example.com/graphql', {
+  directives: {
+    currency: {
+      type: 'query',
+      args: {
+        currency: String,
+      },
+      resolve: (type) => type,
+    },
+  },
+});
+
+const book = await client.query(Book)('book', (book) => [
+  book.title,
+  book.price.currency$({
+    currency: 'USD',
+  }),
+]);
+```
+
+As you can see, you can use the `resolve` option to indicate how the directive affects the return type of the field. For example, the definition of `@include` is like this:
+
+```typescript
+const includeDirective = {
+  type: 'query',
+  args: {
+    if: Boolean,
+  },
+  returns: (type) => Nullable(type),
+};
 ```

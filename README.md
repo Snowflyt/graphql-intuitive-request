@@ -91,8 +91,15 @@ $ npm run build
 Then, in your project, install the package from the local directory.
 
 ```shell
-$ npm install <path_to_graphql-intuitive-request>
+$ npm install graphql graphql-request <path_to_graphql-intuitive-request> --force
 ```
+
+> **WARNING:** As TypeScript 5 is currently in beta and many packages are not yet compatible with it, you may need to install typescript 5 in your project using `--force` option and then install graphql-intuitive-request.
+>
+> ```shell
+> $ npm install typescript@next --force
+> $ npm install graphql graphql-request <path_to_graphql-intuitive-request> --force
+> ```
 
 <del>
 

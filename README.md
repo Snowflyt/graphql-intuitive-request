@@ -77,9 +77,27 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 
 ## Installation
 
+There's currently some technical issues with the package, so it's not available on npm yet. Wait for a while, and it will be available soon.
+
+For now, you can clone the repository and install it locally:
+
+```shell
+$ git clone git@github.com:Snowfly-T/graphql-intuitive-request.git
+$ cd graphql-intuitive-request
+$ npm install --force
+$ npm run build
+```
+
+Then, in your project, install the package from the local directory.
+
+```shell
+$ npm install <path_to_graphql-intuitive-request>
+```
+
+<del>
 ```shell
 $ npm install graphql graphql-request graphql-intuitive-request
-```
+````
 
 > **WARNING:** As TypeScript 5 is currently in beta and many packages are not yet compatible with it, you may need to install typescript 5 in your project using `--force` option and then install graphql-intuitive-request.
 >
@@ -87,6 +105,8 @@ $ npm install graphql graphql-request graphql-intuitive-request
 > $ npm install typescript@next --force
 > $ npm install graphql graphql-request graphql-intuitive-request --force
 > ```
+>
+> </del>
 
 ## Usage
 

@@ -2,7 +2,7 @@
 
 Intuitive and (more importantly) TS-friendly GraphQL client
 
-WARNING: This package is still in development, and the API may change in the future.
+**WARNING:** This package is still in development, and the API may change in the future.
 
 ## Overview
 
@@ -71,7 +71,7 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 ### Features
 
 - **Exact return types inference** for queries and mutations - if you query an entity with **specific** fields, then the return type will be an object with those fields, **not a generic object**
-- **Intuitive** API made full use of TypeScript's type system - -**no need** to write GraphQL queries in **string**s and use ESLint plugins to validate them, everything just in TypeScript
+- **Intuitive** API made full use of TypeScript's type system - **no need** to write GraphQL queries in **string**s and use ESLint plugins to validate them, everything just in TypeScript!
 - built on top of `graphql-request`
 - **TypeScript 5 or higher is required**, as the `const` generic modifier introduced in TypeScript 5 is used
 

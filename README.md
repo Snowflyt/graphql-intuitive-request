@@ -413,7 +413,7 @@ const animals = await client.query([Animal])('animals', (animal) => [
 ]);
 ```
 
-For the `$on()` method, it is likely that only subclasses of the base class will be supported.
+For the `$spreadOn()` method, it is likely that only subclasses of the base class will be supported.
 
 ### Support for directives
 

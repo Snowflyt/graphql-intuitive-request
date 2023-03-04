@@ -81,9 +81,10 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 $ npm install graphql graphql-request graphql-intuitive-request
 ```
 
-> **WARNING:** As TypeScript 5 is currently in beta and many packages are not yet compatible with it, you may need to add `--force` to the command above.
+> **WARNING:** As TypeScript 5 is currently in beta and many packages are not yet compatible with it, you may need to install typescript 5 in your project using `--force` option and then install graphql-intuitive-request.
 >
 > ```shell
+> $ npm install typescript@next --force
 > $ npm install graphql graphql-request graphql-intuitive-request --force
 > ```
 

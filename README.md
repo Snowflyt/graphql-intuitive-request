@@ -490,6 +490,6 @@ const includeDirective = {
   args: {
     if: Boolean,
   },
-  returns: (type) => Nullable(type),
+  resolve: (type) => Nullable(type),
 };
 ```

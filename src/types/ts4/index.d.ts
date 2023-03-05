@@ -1,6 +1,12 @@
 import type { GraphQLClient } from 'graphql-request';
 import type { Processed, QueryPromise, Type } from '../universal/common';
-import type { GraphQLType, NullableType } from '../universal/graphql-types';
+import type {
+  Float,
+  GraphQLType,
+  ID,
+  Int,
+  NullableType,
+} from '../universal/graphql-types';
 import type { QueryNode } from '../universal/query-nodes';
 import type { ParseAst, Selector } from './ast';
 
@@ -9,7 +15,37 @@ declare const Nullable: <T>(type: T) => NullableType<T>;
 declare class GraphQLIntuitiveClient {
   private readonly client;
 
-  constructor(endpoint: string, headers?: Record<string, string>);
+  constructor(endpoint: string, requestConfig?: GraphQLClient['requestConfig']);
+
+  static query<T, U extends Record<string, GraphQLType>>(
+    clazz: Type<T>,
+    variablesType?: U,
+  ): (
+    operationName: string,
+    selector: Selector<T, readonly QueryNode[]>,
+    variables?: { [P in keyof U]: Processed<U[P]> },
+  ) => {
+    toQueryString: () => string;
+    toRequestBody: () => {
+      query: string;
+      variables: { [P in keyof U]: Processed<U[P]> };
+    };
+  };
+
+  static mutation<T, U extends Record<string, GraphQLType>>(
+    clazz: Type<T>,
+    variablesType?: U,
+  ): (
+    operationName: string,
+    selector: Selector<T, readonly QueryNode[]>,
+    variables?: { [P in keyof U]: Processed<U[P]> },
+  ) => {
+    toQueryString: () => string;
+    toRequestBody: () => {
+      query: string;
+      variables: { [P in keyof U]: Processed<U[P]> };
+    };
+  };
 
   getGraphQLClient(): GraphQLClient;
 
@@ -71,13 +107,13 @@ declare class GraphQLIntuitiveClient {
       variables?: { [P in keyof U]: Processed<U[P]> },
     ) => QueryPromise<Array<ParseAst<R>>>);
 
-  private processNullableVariable;
+  private static processNullableVariable;
 
-  private getVariableTypeString;
+  private static getVariableTypeString;
 
-  private buildQueryString;
+  private static buildQueryString;
 
-  private buildQueryAst;
+  private static buildQueryAst;
 }
 
 export { ID, Int, Float, Nullable, GraphQLIntuitiveClient };

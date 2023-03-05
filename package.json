@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "0.0.1-dev.20230305-4",
+  "version": "0.0.1-dev.20230305-5",
   "author": "Snowflyt",
   "license": "MIT",
   "repository": {
@@ -9,13 +9,14 @@
   },
   "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",
   "description": "",
-  "main": "./build/index.js",
+  "main": "./build/cjs/index.js",
+  "module": "./build/esm/index.js",
   "files": [
     "build"
   ],
   "scripts": {
     "clean": "rimraf build",
-    "build": "npm run clean && cpy ./src/types/**/*.d.ts ./build/types && tsc && prettier --write ./build/**/*.js",
+    "build": "npm run clean && cpy ./src/types/**/*.d.ts ./build/types && tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && prettier --write ./build/**/*.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint . --ext .js,.ts"
   },
@@ -32,6 +33,13 @@
         "./build/types/ts4/*"
       ]
     }
+  },
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "devDependencies": {
     "@types/jest": "^29.4.0",

@@ -33,8 +33,62 @@ const Nullable = <T>(type: T): NullableType<T> => {
 class GraphQLIntuitiveClient {
   private readonly client: GraphQLClient;
 
-  constructor(endpoint: string, headers?: Record<string, string>) {
-    this.client = new GraphQLClient(endpoint, { headers });
+  constructor(endpoint: string, requestConfig?: GraphQLClient['requestConfig']) {
+    this.client = new GraphQLClient(endpoint, requestConfig);
+  }
+
+  static query<T, const U extends Record<string, GraphQLType>>(
+    clazz: Type<T>,
+    variablesType: U = {} as any,
+  ) {
+    return (
+      operationName: string,
+      selector: Selector<T, readonly QueryNode[]>,
+      variables: { [P in keyof U]: Processed<U[P]> } = {} as any,
+    ) => {
+      const builder = getBuilder<T>();
+      const ast = selector(builder);
+      const queryString = GraphQLIntuitiveClient.buildQueryString(
+        'query',
+        operationName,
+        variablesType,
+        ast,
+      );
+      return {
+        toQueryString: () => queryString,
+        toRequestBody: () => ({
+          query: queryString,
+          variables,
+        }),
+      };
+    }
+  }
+
+  static mutation<T, const U extends Record<string, GraphQLType>>(
+    clazz: Type<T>,
+    variablesType: U = {} as any,
+  ) {
+    return (
+      operationName: string,
+      selector: Selector<T, readonly QueryNode[]>,
+      variables: { [P in keyof U]: Processed<U[P]> } = {} as any,
+    ) => {
+      const builder = getBuilder<T>();
+      const ast = selector(builder);
+      const queryString = GraphQLIntuitiveClient.buildQueryString(
+        'mutation',
+        operationName,
+        variablesType,
+        ast,
+      );
+      return {
+        toQueryString: () => queryString,
+        toRequestBody: () => ({
+          query: queryString,
+          variables,
+        }),
+      };
+    }
   }
 
   getGraphQLClient() {
@@ -80,11 +134,10 @@ class GraphQLIntuitiveClient {
           variables: { [P in keyof U]: Processed<U[P]> } = {} as any,
         ) => {
           const ast = selector(getBuilder()) as readonly QueryNode[];
-          const queryString = this.buildQueryString(
+          const queryString = GraphQLIntuitiveClient.buildQueryString(
             'query',
             operationName,
             variablesType,
-            variables as any,
             ast,
           );
           const result = this.client.request(
@@ -103,11 +156,10 @@ class GraphQLIntuitiveClient {
       } else {
         variables ??= {} as any;
         const ast = selector(getBuilder()) as readonly QueryNode[];
-        const queryString = this.buildQueryString(
+        const queryString = GraphQLIntuitiveClient.buildQueryString(
           'query',
           operationName,
           variablesType,
-          variables as any,
           ast,
         );
         const result = this.client.request(
@@ -165,11 +217,10 @@ class GraphQLIntuitiveClient {
           variables: { [P in keyof U]: Processed<U[P]> } = {} as any,
         ) => {
           const ast = selector(getBuilder()) as readonly QueryNode[];
-          const queryString = this.buildQueryString(
+          const queryString = GraphQLIntuitiveClient.buildQueryString(
             'mutation',
             operationName,
             variablesType,
-            variables as any,
             ast,
           );
           const result = this.client.request(
@@ -188,11 +239,10 @@ class GraphQLIntuitiveClient {
       } else {
         variables ??= {} as any;
         const ast = selector(getBuilder()) as readonly QueryNode[];
-        const queryString = this.buildQueryString(
+        const queryString = GraphQLIntuitiveClient.buildQueryString(
           'mutation',
           operationName,
           variablesType,
-          variables as any,
           ast,
         );
         const result = this.client.request(
@@ -211,66 +261,65 @@ class GraphQLIntuitiveClient {
     };
   }
 
-  private processNullableVariable(variable: GraphQLType, typeString: string) {
+  private static processNullableVariable(variable: GraphQLType, typeString: string) {
     return (variable as NullableType<GraphQLType>).nullable
       ? `${typeString}`
       : `${typeString}!`;
   }
 
-  private getVariableTypeString(variable: GraphQLType): string {
+  private static getVariableTypeString(variable: GraphQLType): string {
     if (variable instanceof Array) {
-      return this.processNullableVariable(
+      return GraphQLIntuitiveClient.processNullableVariable(
         variable,
-        `[${this.getVariableTypeString(variable[0])}]`,
+        `[${GraphQLIntuitiveClient.getVariableTypeString(variable[0])}]`,
       );
     } else if (variable === String) {
-      return this.processNullableVariable(variable, 'String');
+      return GraphQLIntuitiveClient.processNullableVariable(variable, 'String');
     } else if (variable === Int) {
-      return this.processNullableVariable(variable, 'Int');
+      return GraphQLIntuitiveClient.processNullableVariable(variable, 'Int');
     } else if (variable === Float) {
-      return this.processNullableVariable(variable, 'Float');
+      return GraphQLIntuitiveClient.processNullableVariable(variable, 'Float');
     } else if (variable === Boolean) {
-      return this.processNullableVariable(variable, 'Boolean');
+      return GraphQLIntuitiveClient.processNullableVariable(variable, 'Boolean');
     } else if (variable === ID) {
-      return this.processNullableVariable(variable, 'ID');
+      return GraphQLIntuitiveClient.processNullableVariable(variable, 'ID');
     } else {
-      return this.processNullableVariable(variable, variable.constructor.name);
+      return GraphQLIntuitiveClient.processNullableVariable(variable, variable.name);
     }
   }
 
-  private buildQueryString<VT extends object>(
-    actionType: 'query' | 'mutation',
+  private static buildQueryString<VT extends object>(
+    operationType: 'query' | 'mutation',
     operationName: string,
     variablesType: VT,
-    variables: { [P in keyof VT]: Processed<VT[P]> },
     ast: readonly QueryNode[],
   ) {
-    const query = `${actionType} ${operationName}${
+    const query = `${operationType} ${operationName}${
       Object.keys(variablesType).length > 0
         ? `(${Object.entries(variablesType)
             .map(
-              ([key, value]) => `$${key}: ${this.getVariableTypeString(value)}`,
+              ([key, value]) => `$${key}: ${GraphQLIntuitiveClient.getVariableTypeString(value)}`,
             )
             .join(', ')})`
         : ''
     } {
       ${operationName}${
-      Object.keys(variables).length > 0
-        ? `(${Object.keys(variables)
+      Object.keys(variablesType).length > 0
+        ? `(${Object.keys(variablesType)
             .map((key) => `${key}: $${key}`)
             .join(', ')})`
         : ''
-    } ${this.buildQueryAst(ast)}
+    } ${GraphQLIntuitiveClient.buildQueryAst(ast)}
     }`;
     return query;
   }
 
-  private buildQueryAst(ast: readonly QueryNode[]): string {
+  private static buildQueryAst(ast: readonly QueryNode[]): string {
     return `{
       ${ast
         .map((node) =>
           node.children !== null
-            ? `${node.key} ${this.buildQueryAst(node.children as QueryNode[])}`
+            ? `${node.key} ${GraphQLIntuitiveClient.buildQueryAst(node.children as QueryNode[])}`
             : node.key,
         )
         .join(' ')}

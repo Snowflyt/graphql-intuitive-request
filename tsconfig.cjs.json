@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "module": "CommonJS",
+    "rootDirs": ["src", "test"],
+    "moduleResolution": "node",
+    "outDir": "./build/cjs/",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "noImplicitAny": true,
+    "skipLibCheck": true,
+    "removeComments": false
+  },
+  "ts-node": {
+    "esm": true
+  },
+  "exclude": ["./jest.config.ts", "./test/**/*", "./build/**/*"]
+}

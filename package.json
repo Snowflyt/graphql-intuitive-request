@@ -1,6 +1,13 @@
 {
   "name": "graphql-intuitive-request",
   "version": "0.0.1-dev.20230305",
+  "author": "Snowflyt",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Snowfly-T/graphql-intuitive-request.git"
+  },
+  "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",
   "description": "",
   "main": "./build/index.js",
   "types": "./build/types/index.d.ts",
@@ -13,8 +20,6 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "lint": "eslint . --ext .js,.ts"
   },
-  "author": "Snowflyt",
-  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "@types/jest": "^29.4.0",

@@ -12,6 +12,14 @@ export type Merge<A, B> = {
     : never;
 };
 
+export type QueryPromise<T> = Promise<T> & {
+  toQueryString: () => string;
+  toRequestBody: () => {
+    query: string;
+    variables: Record<string, any>;
+  };
+};
+
 export type Processed<T> = T extends typeof Int | typeof Float
   ? number
   : T extends typeof String

@@ -250,7 +250,7 @@ As is shown in the proceeding example, mutations are also supported.
 >
 > Stressing again, **the name of the class must be the same as the name of the type in the GraphQL schema**. graphql-intuitive-request will use the name of the class to determine the name of the type in query strings.
 
-### Easy encapsulation by partially applying action name
+### Easy encapsulation by partially applying operation name
 
 It is also amazingly easy to encapsulating GraphQL queries and mutations in graphql-intuitive-request.
 
@@ -276,9 +276,9 @@ const updatedRole = await client.mutation(Role, {
 });
 ```
 
-It is annoying to write the same action name and indicate the type of variables every time. It is also not a good practice as it violates the DRY principle, so it is better to encapsulate the GraphQL query or mutation in a function.
+It is annoying to write the same operation name and indicate the type of variables every time. It is also not a good practice as it violates the DRY principle, so it is better to encapsulate the GraphQL query or mutation in a function.
 
-graphql-intuitive-request provides an easy way to partially apply the action name to GraphQL queries and mutations, so that you can write code like this:
+graphql-intuitive-request provides an easy way to partially apply the operation name to GraphQL queries and mutations, so that you can write code like this:
 
 ```typescript
 const updateRole = client.mutation(Role, { id: Int, input: UpdateRoleInput })(
@@ -294,7 +294,49 @@ const updatedRole = await updateRole((role) => [role.id, role.name], {
 });
 ```
 
-As is shown in the proceeding example, you can partially apply the action name to GraphQL queries and mutations, and then pass the rest of the arguments to the partially applied function to get the final result. It is quite useful to eliminate the duplication of the action name.
+As is shown in the proceeding example, you can partially apply the operation name to GraphQL queries and mutations, and then pass the rest of the arguments to the partially applied function to get the final result. It is quite useful to eliminate the duplication of the operation name.
+
+### Convert to query string and query request body
+
+It is also possible to convert graphql-intuitive-request's GraphQL queries and mutations to query strings and query request bodies.
+
+For example, you can convert a query to query string like this:
+
+```typescript
+const queryString = client
+  .query([User])('users', (user) => [user.id, user.name])
+  .toQueryString();
+```
+
+The query string will be like this:
+
+```graphql
+query {
+  users {
+    id
+    name
+  }
+}
+```
+
+You can also convert a query to request body like this:
+
+```typescript
+const queryRequestBody = client
+  .query([User], { id: Int })('users', (user) => [user.id, user.name], {
+    id: 1,
+  })
+  .toRequestBody();
+```
+
+The request body will be an object like this:
+
+```javascript
+{
+  query: 'query ($id: Int!) { users(id: $id) { id name } }',
+  variables: { id: 1 },
+}
+```
 
 ### Work with graphql-request
 

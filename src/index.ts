@@ -1,6 +1,6 @@
 import { GraphQLClient } from 'graphql-request';
 import type { ParseAst, QueryBuilder, Selector } from './types/ts5/ast';
-import type { Processed, Type } from './types/universal/common';
+import type { Processed, QueryPromise, Type } from './types/universal/common';
 import type { Float as Float_, GraphQLType, ID as ID_, Int as Int_, NullableType } from './types/universal/graphql-types';
 import type { QueryNode } from './types/universal/query-nodes';
 
@@ -45,32 +45,32 @@ class GraphQLIntuitiveClient {
     clazz: Type<T>,
     variablesType?: U,
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<ParseAst<R>>) & ((actionName: string) =>
+  ) => QueryPromise<ParseAst<R>>) & ((operationName: string) =>
     <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<ParseAst<R>>);
+    ) => QueryPromise<ParseAst<R>>);
   query<T, const U extends Record<string, GraphQLType>>(
     clazz: [Type<T>],
     variablesType?: U,
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<Array<ParseAst<R>>>) & ((actionName: string) =>
+  ) => QueryPromise<Array<ParseAst<R>>>) & ((operationName: string) =>
     <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<Array<ParseAst<R>>>);
+    ) => QueryPromise<Array<ParseAst<R>>>);
   query<T, const U extends Record<string, GraphQLType>>(
     clazz: Type<T> | [Type<T>],
     variablesType: U = {} as any,
   ) {
     return <const R extends readonly QueryNode[]>(
-      actionName: string,
+      operationName: string,
       selector?: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
     ) => {
@@ -82,33 +82,46 @@ class GraphQLIntuitiveClient {
           const ast = selector(getBuilder()) as readonly QueryNode[];
           const queryString = this.buildQueryString(
             'query',
-            actionName,
+            operationName,
             variablesType,
             variables as any,
             ast,
           );
-          const result = (await this.client.request(
+          const result = this.client.request(
             queryString,
             variables as any,
-          )) as any;
-          return result[actionName];
+          ).then((data) => {
+            return (data as any)[operationName];
+          });
+          (result as any).toQueryString = () => queryString;
+          (result as any).toRequestBody = () => ({
+            query: queryString,
+            variables,
+          });
+          return result;
         };
       } else {
         variables ??= {} as any;
         const ast = selector(getBuilder()) as readonly QueryNode[];
         const queryString = this.buildQueryString(
           'query',
-          actionName,
+          operationName,
           variablesType,
           variables as any,
           ast,
         );
-        return this.client.request(
+        const result = this.client.request(
           queryString,
           variables as any,
-        ).then((result) => {
-          return (result as any)[actionName];
+        ).then((data) => {
+          return (data as any)[operationName];
         });
+        (result as any).toQueryString = () => queryString;
+        (result as any).toRequestBody = () => ({
+          query: queryString,
+          variables,
+        });
+        return result;
       }
     };
   }
@@ -117,32 +130,32 @@ class GraphQLIntuitiveClient {
     clazz: Type<T>,
     variablesType?: U,
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<ParseAst<R>>) & ((actionName: string) =>
+  ) => QueryPromise<ParseAst<R>>) & ((operationName: string) =>
     <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<ParseAst<R>>);
+    ) => QueryPromise<ParseAst<R>>);
   mutation<T, const U extends Record<string, GraphQLType>>(
     clazz: [Type<T>],
     variablesType?: U,
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<Array<ParseAst<R>>>) & ((actionName: string) =>
+  ) => QueryPromise<Array<ParseAst<R>>>) & ((operationName: string) =>
     <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<Array<ParseAst<R>>>);
+    ) => QueryPromise<Array<ParseAst<R>>>);
   mutation<T, const U extends Record<string, GraphQLType>>(
     clazz: Type<T> | [Type<T>],
     variablesType: U = {} as any,
   ) {
     return <const R extends readonly QueryNode[]>(
-      actionName: string,
+      operationName: string,
       selector?: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
     ) => {
@@ -154,33 +167,46 @@ class GraphQLIntuitiveClient {
           const ast = selector(getBuilder()) as readonly QueryNode[];
           const queryString = this.buildQueryString(
             'mutation',
-            actionName,
+            operationName,
             variablesType,
             variables as any,
             ast,
           );
-          const result = (await this.client.request(
+          const result = this.client.request(
             queryString,
             variables as any,
-          )) as any;
-          return result[actionName];
+          ).then((data) => {
+            return (data as any)[operationName];
+          });
+          (result as any).toQueryString = () => queryString;
+          (result as any).toRequestBody = () => ({
+            query: queryString,
+            variables,
+          });
+          return result;
         };
       } else {
         variables ??= {} as any;
         const ast = selector(getBuilder()) as readonly QueryNode[];
         const queryString = this.buildQueryString(
           'mutation',
-          actionName,
+          operationName,
           variablesType,
           variables as any,
           ast,
         );
-        return this.client.request(
+        const result = this.client.request(
           queryString,
           variables as any,
-        ).then((result) => {
-          return (result as any)[actionName];
+        ).then((data) => {
+          return (data as any)[operationName];
         });
+        (result as any).toQueryString = () => queryString;
+        (result as any).toRequestBody = () => ({
+          query: queryString,
+          variables,
+        });
+        return result;
       }
     };
   }
@@ -214,12 +240,12 @@ class GraphQLIntuitiveClient {
 
   private buildQueryString<VT extends object>(
     actionType: 'query' | 'mutation',
-    actionName: string,
+    operationName: string,
     variablesType: VT,
     variables: { [P in keyof VT]: Processed<VT[P]> },
     ast: readonly QueryNode[],
   ) {
-    const query = `${actionType} ${actionName}${
+    const query = `${actionType} ${operationName}${
       Object.keys(variablesType).length > 0
         ? `(${Object.entries(variablesType)
             .map(
@@ -228,7 +254,7 @@ class GraphQLIntuitiveClient {
             .join(', ')})`
         : ''
     } {
-      ${actionName}${
+      ${operationName}${
       Object.keys(variables).length > 0
         ? `(${Object.keys(variables)
             .map((key) => `${key}: $${key}`)

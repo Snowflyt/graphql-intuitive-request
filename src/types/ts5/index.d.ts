@@ -1,5 +1,5 @@
 import type { GraphQLClient } from 'graphql-request';
-import type { Processed, Type } from '../universal/common';
+import type { Processed, QueryPromise, Type } from '../universal/common';
 import type { GraphQLType, NullableType } from '../universal/graphql-types';
 import type { QueryNode } from '../universal/query-nodes';
 import type { ParseAst, Selector } from './ast';
@@ -17,59 +17,59 @@ declare class GraphQLIntuitiveClient {
     clazz: Type<T>,
     variablesType?: U
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<ParseAst<R>>) &
+  ) => QueryPromise<ParseAst<R>>) &
     ((
-      actionName: string
+      operationName: string
     ) => <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<ParseAst<R>>);
+    ) => QueryPromise<ParseAst<R>>);
   query<T, const U extends Record<string, GraphQLType>>(
     clazz: [Type<T>],
     variablesType?: U
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<Array<ParseAst<R>>>) &
+  ) => QueryPromise<Array<ParseAst<R>>>) &
     ((
-      actionName: string
+      operationName: string
     ) => <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<Array<ParseAst<R>>>);
+    ) => QueryPromise<Array<ParseAst<R>>>);
 
   mutation<T, const U extends Record<string, GraphQLType>>(
     clazz: Type<T>,
     variablesType?: U
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> },
-  ) => Promise<ParseAst<R>>) &
+  ) => QueryPromise<ParseAst<R>>) &
     ((
-      actionName: string
+      operationName: string
     ) => <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> },
-    ) => Promise<ParseAst<R>>);
+    ) => QueryPromise<ParseAst<R>>);
   mutation<T, const U extends Record<string, GraphQLType>>(
     clazz: [Type<T>],
     variablesType?: U
   ): (<const R extends readonly QueryNode[]>(
-    actionName: string,
+    operationName: string,
     selector: Selector<T, R>,
     variables?: { [P in keyof U]: Processed<U[P]> }
-  ) => Promise<Array<ParseAst<R>>>) &
+  ) => QueryPromise<Array<ParseAst<R>>>) &
     ((
-      actionName: string
+      operationName: string
     ) => <const R extends readonly QueryNode[]>(
       selector: Selector<T, R>,
       variables?: { [P in keyof U]: Processed<U[P]> }
-    ) => Promise<Array<ParseAst<R>>>);
+    ) => QueryPromise<Array<ParseAst<R>>>);
 
   private processNullableVariable;
 

@@ -1,8 +1,8 @@
 import { GraphQLClient } from 'graphql-request';
-import type { ParseAst, QueryBuilder, Selector } from './ast';
-import type { Processed, Type } from './common';
-import type { GraphQLType, NullableType } from './graphql-types';
-import type { QueryNode } from './query-nodes';
+import type { ParseAst, QueryBuilder, Selector } from './types/ts5/ast';
+import type { Processed, Type } from './types/universal/common';
+import type { Float as Float_, GraphQLType, ID as ID_, Int as Int_, NullableType } from './types/universal/graphql-types';
+import type { QueryNode } from './types/universal/query-nodes';
 
 const getBuilder = <T>(): QueryBuilder<T> => {
   return new Proxy(
@@ -21,9 +21,9 @@ const getBuilder = <T>(): QueryBuilder<T> => {
   ) as any;
 };
 
-const ID = Symbol('ID');
-const Int = Symbol('Int');
-const Float = Symbol('Float');
+const ID: typeof ID_ = Symbol('ID') as typeof ID_;
+const Int: typeof Int_ = Symbol('Int') as typeof Int_;
+const Float: typeof Float_ = Symbol('Float') as typeof Float_;
 
 const Nullable = <T>(type: T): NullableType<T> => {
   (type as NullableType<T>).nullable = true;

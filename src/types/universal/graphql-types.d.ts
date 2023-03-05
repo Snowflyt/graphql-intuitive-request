@@ -1,5 +1,8 @@
-import type { Float, ID, Int } from '.';
 import type { Type } from './common';
+
+declare const ID: unique symbol;
+declare const Int: unique symbol;
+declare const Float: unique symbol;
 
 export type GraphQLPrimitiveType =
   | typeof String

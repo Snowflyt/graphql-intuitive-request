@@ -1,4 +1,4 @@
-import { Float, Int } from '.';
+import { Float, Int } from './graphql-types';
 
 export type Type<T> = new (...args: any[]) => T;
 

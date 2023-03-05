@@ -73,20 +73,13 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 - **Exact return types inference** for queries and mutations - if you query an entity with **specific** fields, then the return type will be an object with those fields, **not a generic object**
 - **Intuitive** API made full use of TypeScript's type system - **no need** to write GraphQL queries in **string**s and use ESLint plugins to validate them, everything just in TypeScript!
 - built on top of `graphql-request`
-- **TypeScript 5 or higher is required**, as the `const` generic modifier introduced in TypeScript 5 is used
+- **More concise syntax** by using the cutting-edge **TypeScript 5** features - **no need** to write a lot of `as const` to indicate TypeScript to infer the type of the query as a **literal** type. However, the package is also **compatible with TypeScript 4**, but you have to add some `as const` to make it work properly.
 
 ## Installation
 
 ```shell
 $ npm install graphql graphql-request graphql-intuitive-request
 ```
-
-> **WARNING:** As TypeScript 5 is currently in beta and many packages are not yet compatible with it, you may need to install typescript 5 in your project using `--force` option and then install graphql-intuitive-request.
->
-> ```shell
-> $ npm install typescript@next --force
-> $ npm install graphql graphql-request graphql-intuitive-request --force
-> ```
 
 ## Usage
 
@@ -105,6 +98,48 @@ const users = await client.query([User])('users', (user) => [
 ]);
 ```
 
+> **Work with TypeScript 4**
+>
+> If you are using TypeScript 4, you have to add `as const` to the query to make it work properly.
+>
+> For example, in the proceeding example, you have to write the query as follows:
+>
+> ```typescript
+> // Query a single entity.
+> const user = await client.query(User)(
+>   'user',
+>   (user) => [user.id, user.name] as const,
+> );
+>
+> // Query a list of entities.
+> const users = await client.query([User])(
+>   'users',
+>   (user) => [user.id, user.name] as const,
+> );
+> ```
+>
+> Remember that you have to add `as const` to **nested queries** as well.
+>
+> ```typescript
+> const users = await client.query([User])(
+>   'users',
+>   (user) =>
+>     [
+>       user.id,
+>       user.name,
+>       user.role((role) => [role.id, role.name] as const),
+>     ] as const,
+> );
+> ```
+>
+> Also, you have to add `as const` to the **variable type object** passed to the query as will be shown in the following section.
+>
+> This is because TypeScript 4 cannot infer the type of the query as a **literal** type, so you have to explicitly indicate it. However, this is not necessary in TypeScript 5, as TypeScript 5 introduces the `const` modifier on generic types, which allows TypeScript to infer the type of the query as a **literal** type.
+>
+> ```
+>
+> ```
+
 ### Query with variables
 
 You can pass variables to the query by passing an object indicating the type of each variable and an object containing the actual values of the variables.
@@ -118,6 +153,22 @@ const user = await client.query(User, { id: Int })(
   { id: 1 },
 );
 ```
+
+> **Work with TypeScript 4**
+>
+> Again, if you are using TypeScript 4, you have to add `as const` to the variable type object to make it work properly.
+>
+> For example, in the proceeding example, you have to write the variable type object as follows:
+>
+> ```typescript
+> import { Int } from 'graphql-intuitive-request';
+>
+> const user = await client.query(User, { id: Int } as const)(
+>   'user',
+>   (user) => [user.id, user.name] as const,
+>   { id: 1 },
+> );
+> ```
 
 ### Types of variables
 

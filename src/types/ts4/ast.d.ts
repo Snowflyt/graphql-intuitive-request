@@ -1,4 +1,4 @@
-import type { Merge } from './common';
+import type { Merge } from '../universal/common';
 import type {
   ArrayBooleanQueryNode,
   ArrayNullableBooleanQueryNode,
@@ -24,8 +24,8 @@ import type {
   NumberQueryNode,
   ObjectQueryNode,
   QueryNode,
-  StringQueryNode
-} from './query-nodes';
+  StringQueryNode,
+} from '../universal/query-nodes';
 
 export type QueryBuilder<T> = {
   [P in keyof T]: T[P] extends string
@@ -65,27 +65,27 @@ export type QueryBuilder<T> = {
     : T[P] extends Array<boolean | null> | null
     ? NullableArrayNullableBooleanQueryNode<P>
     : T[P] extends Array<infer U extends object>
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<U, R>,
       ) => ArrayObjectQueryNode<P, R>
     : T[P] extends Array<infer U extends object | null>
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<U, R>,
       ) => ArrayNullableObjectQueryNode<P, R>
     : T[P] extends Array<infer U extends object> | null
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<U, R>,
       ) => NullableArrayObjectQueryNode<P, R>
     : T[P] extends Array<infer U extends object | null> | null
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<U, R>,
       ) => NullableArrayNullableObjectQueryNode<P, R>
     : T[P] extends object
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<T[P], R>,
       ) => ObjectQueryNode<P, R>
     : T[P] extends object | null
-    ? <const R extends readonly QueryNode[]>(
+    ? <R extends readonly QueryNode[]>(
         selector: Selector<T[P], R>,
       ) => NullableObjectQueryNode<P, R>
     : never;

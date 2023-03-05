@@ -291,24 +291,6 @@ const graphQLClient = graphQLIntuitiveClient.getGraphQLClient();
 
 Remember that these are just plans, and you cannot use them yet.
 
-### Support for passing variables without passing types
-
-Currently, graphql-intuitive-request requires you to pass the types of variables to the query or mutation, so when you write the actual values of variables, you can make full use of the type system to avoid mistakes and use the auto-completion feature of your IDE/editor. You can also enjoy the benefits of easy encapsulation with type checking by passing the types of variables.
-
-However, sometimes you may want to use a query or mutation only once, and you don't want to define the types of variables. In this case, you can just pass the actual values of variables without passing the types of variables.
-
-For example, some planning APIs may have a query like this:
-
-```typescript
-const updatedRole = await client.mutation(Role)(
-  'role',
-  (role) => [role.id, role.name],
-  { id: ID(1) },
-);
-```
-
-This time, you cannot enjoy the benefits of auto-completion and type checking. Also, you still have to use `ID(1)` or something like this to indicate the type of the variable, which is unavoidable because it is impossible to infer the GraphQL type of some variables. For example, we cannot infer whether a `number` is a GraphQL `Int` or a GraphQL `Float`, and whether a `string` is a GraphQL `String` or a GraphQL `ID`, so in such cases, you have to use `ID(1)` or `Int(1)` to indicate the type of the variable. GraphQL is strongly typed, so it is still necessary to indicate the type of the variable.
-
 ### Support for subscriptions
 
 GraphQL subscriptions are not supported yet, but they may be supported in the future.
@@ -408,12 +390,33 @@ const dogFields = createFragmentOn(Dog, (dog) => [dog.name, dog.breed]);
 const catFields = createFragmentOn(Cat, (cat) => [cat.name, cat.color]);
 
 const animals = await client.query([Animal])('animals', (animal) => [
-  animal.$spreadOn(Dog, (dog) => [dog.$spread(dogFields)]),
-  animal.$spreadOn(Cat, (cat) => [cat.$spread(catFields)]),
+  animal.$on(Dog, (dog) => [dog.$spread(dogFields)]),
+  animal.$on(Cat, (cat) => [cat.$spread(catFields)]),
 ]);
 ```
 
-For the `$spreadOn()` method, it is likely that only subclasses of the base class will be supported.
+For the `$on()` method, it is likely that only subclasses of the base class will be supported.
+
+### Support for unions
+
+GraphQL unions are not supported yet, but they may be supported in the future.
+
+Some planning APIs may have look like this:
+
+```typescript
+import { createUnion } from 'graphql-intuitive-request';
+
+const SearchResult = createUnion('SearchResult', [User, Post]);
+
+const searchResult = await client.query(SearchResult, { query: String })(
+  'search',
+  (searchResult) => [
+    searchResult.$on(User, (user) => [user.id, user.name]),
+    searchResult.$on(Post, (post) => [post.id, post.title]),
+  ]
+  { query: 'John' },
+);
+```
 
 ### Support for directives
 

@@ -1,12 +1,7 @@
 import type { GraphQLClient } from 'graphql-request';
 import type { Processed, QueryPromise, Type } from '../universal/common';
-import type {
-  Float,
-  GraphQLType,
-  ID,
-  Int,
-  NullableType,
-} from '../universal/graphql-types';
+import type { GraphQLType, NullableType } from '../universal/graphql-types';
+import { Float, ID, Int } from '../universal/graphql-types';
 import type { QueryNode } from '../universal/query-nodes';
 import type { ParseAst, Selector } from './ast';
 

@@ -43,6 +43,11 @@ const getBuilder = <T>(): ObjectSelectorBuilder<T> => {
   ) as any;
 };
 
+export const NullableStringConstructor = String.bind(null) as MaybeNull<StringConstructor>;
+NullableStringConstructor.__nullable = true;
+export const NullableBooleanConstructor = Boolean.bind(null) as MaybeNull<BooleanConstructor>;
+NullableBooleanConstructor.__nullable = true;
+
 const isGraphQLType = (value: unknown): value is GraphQLType =>
   value instanceof GraphQLScalarType ||
   value instanceof GraphQLObjectType ||
@@ -53,10 +58,10 @@ const isGraphQLType = (value: unknown): value is GraphQLType =>
   value instanceof GraphQLList;
 
 const isStringConstructor = (value: unknown): value is StringConstructor =>
-  value === String;
+  value === String || value === NullableStringConstructor;
 
 const isBooleanConstructor = (value: unknown): value is BooleanConstructor =>
-  value === Boolean;
+  value === Boolean || value === NullableBooleanConstructor;
 
 const isOneElementTuple = (value: unknown): value is readonly [unknown] =>
   Array.isArray(value) && value.length === 1;
@@ -65,12 +70,6 @@ const getVariableTypeString = (
   variableType: VariableType,
   exclamationMarkAdded: boolean = false,
 ): string => {
-  // If the type is GraphQLType, add the '!' suffix to the type name,
-  if (isGraphQLType(variableType)) {
-    return exclamationMarkAdded
-      ? variableType.toString()
-      : `${variableType.toString()}!`;
-  }
   // If the type is not a nullable type marked by the `Nullable` function,
   // add the '!' suffix to the type name,
   // and set exclamationMarkAdded to true to avoid adding the '!' suffix again.
@@ -79,6 +78,10 @@ const getVariableTypeString = (
     !('__nullable' in variableType && variableType.__nullable === true)
   ) {
     return `${getVariableTypeString(variableType, true)}!`;
+  }
+  // If the type is GraphQLType, just use the type name.
+  if (isGraphQLType(variableType)) {
+    return variableType.toString();
   }
   // If the type is an one-element tuple, we need to add '[]' around the type name.
   if (isOneElementTuple(variableType)) {
@@ -120,7 +123,7 @@ const buildQueryString = <const VT extends object>(
   const definitionHeader = `${operationType} ${operationName}${
     Object.keys(variablesType).length > 0
       ? `(${Object.entries(variablesType)
-          .map(([key, value]) => `$${key}: ${getVariableTypeString(value)}`)
+          .map(([key, value]) => `$${key}: ${getVariableTypeString(value, false)}`)
           .join(', ')})`
       : ''
   } {`;

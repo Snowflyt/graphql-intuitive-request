@@ -10,13 +10,26 @@ export type Merge<A, B> = {
     : never;
 };
 
-export type QueryPromise<T> = Promise<T> & {
+export interface QueryPromise<T> extends Promise<T> {
   toQueryString: () => string;
   toRequestBody: () => {
     query: string;
     variables: Record<string, any>;
   };
-};
+}
+
+export interface SubscriptionResponse<T> {
+  subscribe: (
+    subscriber: (data: T) => void,
+    onError?: (error: any) => void,
+    onComplete?: () => void,
+  ) => void;
+  toQueryString: () => string;
+  toRequestBody: () => {
+    query: string;
+    variables: Record<string, any>;
+  };
+}
 
 export type ExtractTypeFromPrimitiveConstructor<
   T extends StringConstructor | NumberConstructor | BooleanConstructor,

@@ -8,13 +8,14 @@ import {
   GraphQLType,
   GraphQLUnionType,
 } from 'graphql';
-import { GraphQLClient } from 'graphql-request';
+import { GraphQLClient as RequestClient } from 'graphql-request';
+import { Client as WSClient, ClientOptions as WSOptions, createClient as createWSClient } from 'graphql-ws';
 import type {
   ObjectSelector,
   ObjectSelectorBuilder,
 } from './types/ts5/ast-builder';
 import type { ParseNodes } from './types/universal/ast-parser';
-import type { ClassType, QueryPromise } from './types/universal/common';
+import type { ClassType, QueryPromise, SubscriptionResponse } from './types/universal/common';
 import type {
   MaybeNull,
   NullablePrimitiveTypeAndArray,
@@ -22,7 +23,7 @@ import type {
   ValidReturnType,
   VariableType,
   VariablesOf,
-  VariablesType,
+  VariablesType
 } from './types/universal/graphql-types';
 import type { QueryNode } from './types/universal/query-nodes';
 
@@ -115,7 +116,7 @@ const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
     .join('\n')}\n${' '.repeat(indent - 2)}}`;
 
 const buildQueryString = <const VT extends object>(
-  operationType: 'query' | 'mutation',
+  operationType: 'query' | 'mutation' | 'subscription',
   operationName: string,
   variablesType: VT,
   ast: readonly QueryNode[],
@@ -185,17 +186,34 @@ export function createQueryStringFor<
 }
 
 export class GraphQLIntuitiveClient {
-  private readonly client: GraphQLClient;
+  private readonly url: string;
+  private readonly config?: RequestClient['requestConfig'];
+  private readonly requestClient: RequestClient;
+  private wsClient?: WSClient;
 
   constructor(
-    endpoint: string,
-    requestConfig?: GraphQLClient['requestConfig'],
+    url: string,
+    config?: RequestClient['requestConfig']
   ) {
-    this.client = new GraphQLClient(endpoint, requestConfig);
+    this.url = url;
+    this.config = config;
+    this.requestClient = new RequestClient(url, config);
   }
 
-  getGraphQLClient(): GraphQLClient {
-    return this.client;
+  withWebSocketClient(options: WSOptions): GraphQLIntuitiveClient {
+    if (this.wsClient !== undefined) {
+      throw new Error('WebSocket client already exists.');
+    }
+    this.wsClient = createWSClient(options);
+    return this;
+  }
+
+  getRequestClient(): RequestClient {
+    return this.requestClient;
+  }
+
+  getWSClient(): WSClient | undefined {
+    return this.wsClient;
   }
 
   query(operationName: string): () => QueryPromise<void>;
@@ -284,7 +302,7 @@ export class GraphQLIntuitiveClient {
         variablesType,
         ast,
       );
-      const result = this.client
+      const result = this.requestClient
         .request(queryString, variables)
         .then((data) => {
           return (data as any)[operationName];
@@ -384,7 +402,7 @@ export class GraphQLIntuitiveClient {
         variablesType,
         ast,
       );
-      const result = this.client
+      const result = this.requestClient
         .request(queryString, variables)
         .then((data) => {
           return (data as any)[operationName];
@@ -395,6 +413,138 @@ export class GraphQLIntuitiveClient {
         variables,
       });
       return result as any;
+    };
+  }
+
+  subscription(operationName: string): () => SubscriptionResponse<void>;
+  subscription<const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+  ): (variables: VariablesOf<VT>) => SubscriptionResponse<void>;
+  subscription<T extends NullablePrimitiveTypeAndArray, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType: T,
+  ): (
+    variables: VariablesOf<VT>,
+  ) => SubscriptionResponse<ParseNullablePrimitiveTypeAndArray<T>>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType: MaybeNull<ClassType<C>> | MaybeNull<GraphQLObjectType<C>>,
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<ParseNodes<R> | null>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType: ClassType<C> | GraphQLObjectType<C>,
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<ParseNodes<R>>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType:
+      | MaybeNull<readonly [MaybeNull<ClassType<C>>]>
+      | MaybeNull<readonly [MaybeNull<GraphQLObjectType<C>>]>,
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<Array<ParseNodes<R> | null> | null>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType:
+      | MaybeNull<readonly [ClassType<C>]>
+      | MaybeNull<readonly [GraphQLObjectType<C>]>,
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<Array<ParseNodes<R>> | null>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType:
+      | readonly [MaybeNull<ClassType<C>>]
+      | readonly [MaybeNull<GraphQLObjectType<C>>],
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<Array<ParseNodes<R> | null>>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT,
+    returnType: readonly [ClassType<C>] | readonly [GraphQLObjectType<C>],
+  ): <const R extends readonly QueryNode[]>(
+    variables: VariablesOf<VT>,
+    selector: ObjectSelector<C, R>,
+  ) => SubscriptionResponse<Array<ParseNodes<R>>>;
+  subscription<C extends Record<string, any>, const VT extends VariablesType>(
+    operationName: string,
+    variablesType: VT = {} as any,
+    returnType: ValidReturnType = undefined,
+  ) {
+    return <const R extends readonly QueryNode[]>(
+      variables?: VariablesOf<VT>,
+      selector?: ObjectSelector<C, R>,
+    ) => {
+      variables ??= {} as any;
+      const ast =
+        selector === undefined
+          ? []
+          : (selector(getBuilder()) as readonly QueryNode[]);
+      const queryString = buildQueryString(
+        'subscription',
+        operationName,
+        variablesType,
+        ast,
+      );
+      return {
+        subscribe: (
+          subscriber: (data: any) => void,
+          onError?: (error: any) => void,
+          onComplete?: () => void,
+        ) => {
+          if (this.wsClient === undefined) {
+            throw new Error(
+              'Cannot subscribe to a subscription without a WebSocket client. ' +
+                'Use the `withWebSocketClient` method to provide one.'
+            );
+          }
+          const wsClient = this.wsClient;
+          const unsubscribe = wsClient.subscribe(
+            {
+              query: queryString,
+              variables,
+            },
+            {
+              next: (value) => {
+                if (value.errors) {
+                  onError?.(value.errors);
+                }
+                if (value.data) {
+                  subscriber(value.data[operationName]);
+                }
+              },
+              error: (error) => {
+                onError?.(error);
+              },
+              complete: () => {
+                onComplete?.();
+              },
+            },
+          );
+          return unsubscribe;
+        },
+        toQueryString: () => queryString,
+        toRequestBody: () => ({
+          query: queryString,
+          variables,
+        }),
+      } as SubscriptionResponse<any>;
     };
   }
 }

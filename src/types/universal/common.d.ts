@@ -23,7 +23,7 @@ export interface SubscriptionResponse<T> {
     subscriber: (data: T) => void,
     onError?: (error: any) => void,
     onComplete?: () => void,
-  ) => void;
+  ) => () => void;
   toQueryString: () => string;
   toRequestBody: () => {
     query: string;

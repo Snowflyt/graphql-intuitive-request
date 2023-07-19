@@ -14,5 +14,5 @@
   "ts-node": {
     "esm": true
   },
-  "exclude": ["./jest.config.ts", "./test/**/*", "./build/**/*"]
+  "exclude": ["./jest.config.ts", "./test/**/*"]
 }

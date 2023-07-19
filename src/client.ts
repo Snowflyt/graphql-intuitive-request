@@ -9,13 +9,22 @@ import {
   GraphQLUnionType,
 } from 'graphql';
 import { GraphQLClient as RequestClient } from 'graphql-request';
-import { Client as WSClient, ClientOptions as WSOptions, createClient as createWSClient } from 'graphql-ws';
+import {
+  Client as WSClient,
+  ClientOptions as WSOptions,
+  createClient as createWSClient,
+} from 'graphql-ws';
+
 import type {
   ObjectSelector,
   ObjectSelectorBuilder,
-} from './types/ts5/ast-builder';
-import type { ParseNodes } from './types/universal/ast-parser';
-import type { ClassType, QueryPromise, SubscriptionResponse } from './types/universal/common';
+} from './types/ast-builder';
+import type { ParseNodes } from './types/ast-parser';
+import type {
+  ClassType,
+  QueryPromise,
+  SubscriptionResponse,
+} from './types/common';
 import type {
   MaybeNull,
   NullablePrimitiveTypeAndArray,
@@ -23,9 +32,9 @@ import type {
   ValidReturnType,
   VariableType,
   VariablesOf,
-  VariablesType
-} from './types/universal/graphql-types';
-import type { QueryNode } from './types/universal/query-nodes';
+  VariablesType,
+} from './types/graphql-types';
+import type { QueryNode } from './types/query-nodes';
 
 const getBuilder = <T>(): ObjectSelectorBuilder<T> => {
   return new Proxy(
@@ -44,9 +53,13 @@ const getBuilder = <T>(): ObjectSelectorBuilder<T> => {
   ) as any;
 };
 
-export const NullableStringConstructor = String.bind(null) as MaybeNull<StringConstructor>;
+export const NullableStringConstructor = String.bind(
+  null,
+) as MaybeNull<StringConstructor>;
 NullableStringConstructor.__nullable = true;
-export const NullableBooleanConstructor = Boolean.bind(null) as MaybeNull<BooleanConstructor>;
+export const NullableBooleanConstructor = Boolean.bind(
+  null,
+) as MaybeNull<BooleanConstructor>;
 NullableBooleanConstructor.__nullable = true;
 
 const isGraphQLType = (value: unknown): value is GraphQLType =>
@@ -124,7 +137,9 @@ const buildQueryString = <const VT extends object>(
   const definitionHeader = `${operationType} ${operationName}${
     Object.keys(variablesType).length > 0
       ? `(${Object.entries(variablesType)
-          .map(([key, value]) => `$${key}: ${getVariableTypeString(value, false)}`)
+          .map(
+            ([key, value]) => `$${key}: ${getVariableTypeString(value, false)}`,
+          )
           .join(', ')})`
       : ''
   } {`;
@@ -175,6 +190,7 @@ export function createQueryStringFor<
   operationType: 'query' | 'mutation',
   operationName: string,
   variablesType: VariablesType = {} as any,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   returnType: ValidReturnType = undefined,
   selector?: ObjectSelector<C, R>,
 ): string {
@@ -191,10 +207,7 @@ export class GraphQLIntuitiveClient {
   private readonly requestClient: RequestClient;
   private wsClient?: WSClient;
 
-  constructor(
-    url: string,
-    config?: RequestClient['requestConfig']
-  ) {
+  constructor(url: string, config?: RequestClient['requestConfig']) {
     this.url = url;
     this.config = config;
     this.requestClient = new RequestClient(url, config);
@@ -221,7 +234,10 @@ export class GraphQLIntuitiveClient {
     operationName: string,
     variablesType: VT,
   ): (variables: VariablesOf<VT>) => QueryPromise<void>;
-  query<T extends NullablePrimitiveTypeAndArray, const VT extends VariablesType>(
+  query<
+    T extends NullablePrimitiveTypeAndArray,
+    const VT extends VariablesType,
+  >(
     operationName: string,
     variablesType: VT,
     returnType: T,
@@ -285,6 +301,7 @@ export class GraphQLIntuitiveClient {
   query<C extends Record<string, any>, const VT extends VariablesType>(
     operationName: string,
     variablesType: VT = {} as any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     returnType: ValidReturnType = undefined,
   ) {
     return <const R extends readonly QueryNode[]>(
@@ -321,7 +338,10 @@ export class GraphQLIntuitiveClient {
     operationName: string,
     variablesType: VT,
   ): (variables: VariablesOf<VT>) => QueryPromise<void>;
-  mutation<T extends NullablePrimitiveTypeAndArray, const VT extends VariablesType>(
+  mutation<
+    T extends NullablePrimitiveTypeAndArray,
+    const VT extends VariablesType,
+  >(
     operationName: string,
     variablesType: VT,
     returnType: T,
@@ -385,6 +405,7 @@ export class GraphQLIntuitiveClient {
   mutation<C extends Record<string, any>, const VT extends VariablesType>(
     operationName: string,
     variablesType: VT = {} as any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     returnType: ValidReturnType = undefined,
   ) {
     return <const R extends readonly QueryNode[]>(
@@ -421,7 +442,10 @@ export class GraphQLIntuitiveClient {
     operationName: string,
     variablesType: VT,
   ): (variables: VariablesOf<VT>) => SubscriptionResponse<void>;
-  subscription<T extends NullablePrimitiveTypeAndArray, const VT extends VariablesType>(
+  subscription<
+    T extends NullablePrimitiveTypeAndArray,
+    const VT extends VariablesType,
+  >(
     operationName: string,
     variablesType: VT,
     returnType: T,
@@ -485,6 +509,7 @@ export class GraphQLIntuitiveClient {
   subscription<C extends Record<string, any>, const VT extends VariablesType>(
     operationName: string,
     variablesType: VT = {} as any,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     returnType: ValidReturnType = undefined,
   ) {
     return <const R extends readonly QueryNode[]>(
@@ -511,7 +536,7 @@ export class GraphQLIntuitiveClient {
           if (this.wsClient === undefined) {
             throw new Error(
               'Cannot subscribe to a subscription without a WebSocket client. ' +
-                'Use the `withWebSocketClient` method to provide one.'
+                'Use the `withWebSocketClient` method to provide one.',
             );
           }
           const wsClient = this.wsClient;

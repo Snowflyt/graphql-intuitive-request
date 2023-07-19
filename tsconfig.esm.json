@@ -10,7 +10,10 @@
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true,
-    "removeComments": false
+    "removeComments": false,
+
+    "declaration": true,
+    "declarationDir": "./build/types/",
   },
   "ts-node": {
     "esm": true

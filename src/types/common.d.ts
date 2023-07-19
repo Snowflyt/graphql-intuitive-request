@@ -72,6 +72,7 @@ export type IsUnknown<T> = unknown extends T ? true : false;
  * and `IsFunction<never>` returns `never`,
  * so make sure you have considered that before you use it.
  */
+// eslint-disable-next-line @typescript-eslint/ban-types
 export type IsFunction<T> = T extends Function ? true : false;
 
 /**

@@ -8,6 +8,7 @@ import {
   GraphQLType,
   GraphQLUnionType,
 } from 'graphql';
+
 import type { ClassType, IsAny } from './common';
 
 export type MaybeNull<T> = T & {
@@ -71,7 +72,8 @@ export type ProcessedVariableType<T> = IsAny<T> extends true
   : T extends GraphQLScalarType<any, infer U>
   ? U
   : T extends GraphQLObjectType<infer U>
-  ? U extends Function | Symbol
+  ? // eslint-disable-next-line @typescript-eslint/ban-types
+    U extends Function | symbol
     ? Record<never, never>
     : IsAny<U> extends true
     ? Record<never, never>

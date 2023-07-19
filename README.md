@@ -2,6 +2,8 @@
 
 Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutations and subscriptions
 
+**Tips:** TypeScript 4 is no longer supported since version 0.0.2. Please upgrade to TypeScript 5.0 or above. If you are using TypeScript 4, you can still use version 0.0.1, but you have to add some `as const` to make it work properly. See [Documentation for version 0.0.1](https://github.com/Snowfly-T/graphql-intuitive-request/tree/version-0.0.1).
+
 **WARNING:** This package is still in development, and the API may change in the future.
 
 **WARNING:** Turn on `strictNullChecks` in your `tsconfig.json` to get the best experience. Otherwise, graphql-intuitive-request will not be able to infer some nullable fields correctly, and would just infer them as non-nullable ones. However, it is not quite necessary, as graphql-intuitive-request will still work properly without `strictNullChecks`.
@@ -77,7 +79,7 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 - **Exact return types inference** for queries, mutations and subscriptions - if you query an entity with **specific** fields, then the return type will be an object with those fields, **not a generic object**
 - **Intuitive** API made full use of TypeScript's type system - **no need** to write GraphQL queries in **string**s and use ESLint plugins to validate them, everything just in TypeScript!
 - built on top of `graphql-request`
-- **More concise syntax** by using the cutting-edge **TypeScript 5** features - **no need** to write a lot of `as const` to indicate TypeScript to infer the type of the query as a **literal** type. However, the package is also **compatible with TypeScript 4**, but you have to add some `as const` to make it work properly.
+- **More concise syntax** by using the cutting-edge **TypeScript 5** features - **no need** to write a lot of `as const` to indicate TypeScript to infer the type of the query as a **literal** type.
 
 ## Installation
 
@@ -106,45 +108,6 @@ const users = await client.query('users', {}, [User])({}, (user) => [
 ]);
 ```
 
-> **Work with TypeScript 4**
->
-> If you are using TypeScript 4, you have to add `as const` to the query to make it work properly.
->
-> For example, in the proceeding example, you have to write the query as follows:
->
-> ```typescript
-> // Query a single entity.
-> const user = await client.query(
->   'currUser',
->   {},
->   User,
-> )({}, (user) => [user.id, user.name]);
->
-> // Query a list of entities.
-> const users = await client.query('users', {}, [User])({}, (user) => [
->   user.id,
->   user.name,
-> ]);
-> ```
->
-> Remember that you have to add `as const` to **nested queries** as well.
->
-> ```typescript
-> const users = await client.query('users', {}, [User])(
->   {},
->   (user) =>
->     [
->       user.id,
->       user.name,
->       user.role((role) => [role.id, role.name] as const),
->     ] as const,
-> );
-> ```
->
-> Also, you have to add `as const` to the **variable type object** passed to the query as will be shown in the following section.
->
-> This is because TypeScript 4 cannot infer the type of the query as a **literal** type, so you have to explicitly indicate it. However, this is not necessary in TypeScript 5, as TypeScript 5 introduces the `const` modifier on generic types, which allows TypeScript to infer the type of the query as a **literal** type.
-
 ### Query with variables
 
 You can pass variables to the query by passing an object indicating the type of each variable and an object containing the actual values of the variables.
@@ -158,22 +121,6 @@ const user = await client.query(
   User,
 )({ id: 1 }, (user) => [user.id, user.name]);
 ```
-
-> **Work with TypeScript 4**
->
-> Again, if you are using TypeScript 4, you have to add `as const` to the variable type object to make it work properly.
->
-> For example, in the proceeding example, you have to write the variable type object as follows:
->
-> ```typescript
-> import { Int } from 'graphql-intuitive-request';
->
-> const user = await client.query(
->   'user',
->   { id: Int } as const,
->   User,
-> )({ id: 1 }, (user) => [user.id, user.name] as const);
-> ```
 
 ### Work with types
 

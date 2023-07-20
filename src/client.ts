@@ -399,7 +399,11 @@ export const typesOptions = {
   includes: [graphQLDefaults],
 } satisfies ScopeOptions;
 
-export const types = <const T extends Types<T>>(types: T) => types;
+export const types: <const T extends Types<T>>(types: T) => T = <
+  const T extends Types<T>,
+>(
+  types: T,
+) => types;
 
 export type GraphQLIntuitiveClientOptions<
   T extends Types<T> = Record<string, never>,
@@ -530,7 +534,58 @@ export class GraphQLIntuitiveClient<
     return this.wsClient;
   }
 
-  query$ = (operationName: string) => ({
+  query$: (operationName: string) => {
+    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
+      variablesType: VT,
+    ) => {
+      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
+        select: <const R extends readonly QueryNode[]>(
+          ...selector: InferValidReturnTypeArkInternal<
+            T,
+            TTypes
+          >['result'] extends object
+            ? [
+                ObjectSelector<
+                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
+                  R
+                >,
+              ]
+            : []
+        ) => {
+          by: (
+            variables: VariablesOfArk<VT, TTypes>,
+          ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
+            result: object;
+            type: infer TType extends `${any}`;
+          }
+            ? QueryPromise<ParseNodesByType<R, TType>>
+            : QueryPromise<
+                InferValidReturnTypeArkInternal<T, TTypes>['result']
+              >;
+        };
+      };
+    };
+    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
+      select: <const R extends readonly QueryNode[]>(
+        ...selector: InferValidReturnTypeArkInternal<
+          T,
+          TTypes
+        >['result'] extends object
+          ? [
+              ObjectSelector<
+                InferValidReturnTypeArkInternal<T, TTypes>['result'],
+                R
+              >,
+            ]
+          : []
+      ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
+        result: object;
+        type: infer TType extends `${any}`;
+      }
+        ? QueryPromise<ParseNodesByType<R, TType>>
+        : QueryPromise<InferValidReturnTypeArkInternal<T, TTypes>['result']>;
+    };
+  } = (operationName: string) => ({
     variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
       variablesType: VT,
     ) => ({
@@ -634,7 +689,58 @@ export class GraphQLIntuitiveClient<
     }),
   });
 
-  mutation$ = (operationName: string) => ({
+  mutation$: (operationName: string) => {
+    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
+      variablesType: VT,
+    ) => {
+      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
+        select: <const R extends readonly QueryNode[]>(
+          ...selector: InferValidReturnTypeArkInternal<
+            T,
+            TTypes
+          >['result'] extends object
+            ? [
+                ObjectSelector<
+                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
+                  R
+                >,
+              ]
+            : []
+        ) => {
+          by: (
+            variables: VariablesOfArk<VT, TTypes>,
+          ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
+            result: object;
+            type: infer TType extends `${any}`;
+          }
+            ? QueryPromise<ParseNodesByType<R, TType>>
+            : QueryPromise<
+                InferValidReturnTypeArkInternal<T, TTypes>['result']
+              >;
+        };
+      };
+    };
+    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
+      select: <const R extends readonly QueryNode[]>(
+        ...selector: InferValidReturnTypeArkInternal<
+          T,
+          TTypes
+        >['result'] extends object
+          ? [
+              ObjectSelector<
+                InferValidReturnTypeArkInternal<T, TTypes>['result'],
+                R
+              >,
+            ]
+          : []
+      ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
+        result: object;
+        type: infer TType extends `${any}`;
+      }
+        ? QueryPromise<ParseNodesByType<R, TType>>
+        : QueryPromise<InferValidReturnTypeArkInternal<T, TTypes>['result']>;
+    };
+  } = (operationName: string) => ({
     variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
       variablesType: VT,
     ) => ({

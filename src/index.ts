@@ -20,6 +20,8 @@ export {
   types,
 } from './client';
 
+export type { Types } from './types/graphql-types-ark';
+
 export type { GraphQLIntuitiveClientOptions } from './client';
 
 export function Nullable<const T extends readonly [any]>(type: T): MaybeNull<T>;

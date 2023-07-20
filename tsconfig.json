@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2017",
+    "lib": ["ESNext"],
     "module": "ESNext",
     "rootDirs": ["src", "test"],
     "moduleResolution": "node",
@@ -14,5 +15,5 @@
   "ts-node": {
     "esm": true
   },
-  "exclude": ["./jest.config.ts", "./test/**/*"]
+  "exclude": ["./jest.config.ts"]
 }

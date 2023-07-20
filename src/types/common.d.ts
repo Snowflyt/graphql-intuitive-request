@@ -10,6 +10,10 @@ export type Merge<A, B> = {
     : never;
 };
 
+export type DeepWriteable<T> = {
+  -readonly [P in keyof T]: DeepWriteable<T[P]>;
+};
+
 export interface QueryPromise<T> extends Promise<T> {
   toQueryString: () => string;
   toRequestBody: () => {

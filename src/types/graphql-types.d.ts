@@ -15,7 +15,7 @@ export type MaybeNull<T> = T & {
   __nullable: true;
 };
 
-export type ValidReturnType =
+export type ValidReturnType<C = any> =
   | ClassType<C>
   | GraphQLObjectType<C>
   | readonly [ClassType<C>]
@@ -25,6 +25,25 @@ export type ValidReturnType =
   | BooleanConstructor
   | GraphQLScalarType
   | void;
+export type InferValidReturnTypeInternal<T> = T extends ClassType<infer U>
+  ? U
+  : T extends GraphQLObjectType<infer U>
+  ? U
+  : T extends readonly [ClassType<infer U>]
+  ? U
+  : T extends readonly [GraphQLObjectType<infer U>]
+  ? U
+  : T extends StringConstructor
+  ? string
+  : T extends NumberConstructor
+  ? number
+  : T extends BooleanConstructor
+  ? boolean
+  : T extends GraphQLScalarType<infer U>
+  ? U
+  : T extends void
+  ? void
+  : never;
 
 export type NullablePrimitiveTypeAndArray =
   | StringConstructor

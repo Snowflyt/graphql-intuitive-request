@@ -14,7 +14,13 @@ export {
   GraphQLIntuitiveClient,
   createObjectSelectorOn,
   createQueryStringFor,
+  query,
+  mutation,
+  subscription,
+  types,
 } from './client';
+
+export type { GraphQLIntuitiveClientOptions } from './client';
 
 export function Nullable<const T extends readonly [any]>(type: T): MaybeNull<T>;
 export function Nullable<T>(type: T): MaybeNull<T>;

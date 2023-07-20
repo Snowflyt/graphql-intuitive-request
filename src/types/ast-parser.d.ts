@@ -49,3 +49,18 @@ export type ParseNodes<T extends readonly QueryNode[]> = T extends readonly [
 ]
   ? Merge<ParseNode<H>, ParseNodes<TT>>
   : Record<never, never>;
+
+export type ParseNodesByType<
+  T extends readonly QueryNode[],
+  TType extends `${any}`,
+> = TType extends 'Array<Object | null> | null'
+  ? Array<ParseNodes<T> | null> | null
+  : TType extends 'Array<Object> | null'
+  ? Array<ParseNodes<T>> | null
+  : TType extends 'Array<Object | null>'
+  ? Array<ParseNodes<T> | null>
+  : TType extends 'Array<Object>'
+  ? Array<ParseNodes<T>>
+  : TType extends 'Object | null'
+  ? ParseNodes<T> | null
+  : ParseNodes<T>;

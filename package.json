@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "0.0.2-alpha.0",
+  "version": "0.0.2-alpha.2",
   "description": "Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutations and subscriptions",
   "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",
   "repository": {
@@ -27,6 +27,7 @@
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "dependencies": {
+    "arktype": "^1.0.16-alpha",
     "graphql": "^16.7.1",
     "graphql-request": "^6.1.0",
     "graphql-ws": "^5.14.0"

@@ -1,1170 +1,284 @@
-import { scope, Type } from 'arktype';
-import {
-  GraphQLEnumType,
-  GraphQLFloat,
-  GraphQLID,
-  GraphQLInputObjectType,
-  GraphQLInt,
-  GraphQLInterfaceType,
-  GraphQLList,
-  GraphQLObjectType,
-  GraphQLScalarType,
-  GraphQLType,
-  GraphQLUnionType,
-} from 'graphql';
 import { GraphQLClient as RequestClient } from 'graphql-request';
 import {
   createClient as createWSClient,
   Client as WSClient,
-  ClientOptions as WSOptions,
+  ClientOptions as WSClientOptions,
 } from 'graphql-ws';
 
-import { omit } from './utils';
+import { buildQueryString } from './query-builder';
+import { createAllSelector, parseSelector } from './selector';
+import { createTypeParser } from './type-parser';
+import { ParseNodes } from './types/ast-parser';
+import { capitalize, omit, pick, requiredFieldsCount } from './utils';
 
-import { Nullable } from '.';
-
+import type { Types } from './types';
+import type { ObjectSelector } from './types/ast-builder';
 import type {
-  ObjectSelector,
-  ObjectSelectorBuilder,
-} from './types/ast-builder';
-import type { ParseNodes, ParseNodesByType } from './types/ast-parser';
-import type {
-  ClassType,
+  Cast,
   QueryPromise,
+  RequiredFields,
+  RequiredFieldsCount,
   SubscriptionResponse,
+  TrimEnd,
+  TuplifyLiteralStringUnion,
+  WithDefault,
 } from './types/common';
 import type {
-  MaybeNull,
-  NullablePrimitiveTypeAndArray,
-  ParseNullablePrimitiveTypeAndArray,
-  ValidReturnType,
+  FunctionCollection,
+  ParseReturnType,
+  TypeCollection,
   VariablesOf,
-  VariablesType,
-  VariableType,
+  WrapByType,
 } from './types/graphql-types';
-import type {
-  ValidReturnTypeArk,
-  Types,
-  VariablesOfArk,
-  VariablesTypeArk,
-  InferValidReturnTypeArkInternal,
-} from './types/graphql-types-ark';
 import type { QueryNode } from './types/query-nodes';
-import type { ConfigNode, TypeNode } from 'arktype/dist/nodes/node';
-import type { ScopeOptions } from 'arktype/dist/scopes/scope';
 
-const getBuilder = <T>(): ObjectSelectorBuilder<T> => {
-  return new Proxy(
-    {},
-    {
-      get: (_, prop) => {
-        const result = ((selector: any) => {
-          result.children = selector(getBuilder());
-          return result;
-        }) as any;
-        result.key = prop;
-        result.children = null;
-        return result;
-      },
-    },
-  ) as any;
-};
+type OperationResponse<
+  TMethod extends 'query' | 'mutation' | 'subscription',
+  T,
+> = TMethod extends 'subscription' ? SubscriptionResponse<T> : QueryPromise<T>;
 
-export const NullableStringConstructor = String.bind(
-  null,
-) as MaybeNull<StringConstructor>;
-NullableStringConstructor.__nullable = true;
-export const NullableBooleanConstructor = Boolean.bind(
-  null,
-) as MaybeNull<BooleanConstructor>;
-NullableBooleanConstructor.__nullable = true;
+type ByMixin<
+  TVariables extends Record<string, string>,
+  TTypes,
+  R,
+> = RequiredFieldsCount<TVariables> extends 0
+  ? ByMixinHelper<
+      TVariables,
+      TuplifyLiteralStringUnion<keyof TVariables>,
+      TTypes,
+      R
+    >
+  : RequiredFieldsCount<TVariables> extends 1
+  ? ByMixinHelper<TVariables, [RequiredFields<TVariables>], TTypes, R>
+  : Record<string, never>;
+type ByMixinHelper<
+  TVariables,
+  TKeys,
+  TTypes,
+  R,
+  Result = unknown,
+> = TKeys extends readonly [infer TKey, ...infer TRest extends any[]]
+  ? ByMixinHelper<
+      TVariables,
+      TRest,
+      TTypes,
+      R,
+      Result &
+        Record<
+          `by${Capitalize<TrimEnd<Cast<TKey, string>, '?'>>}`,
+          (
+            arg: VariablesOf<TVariables, TTypes>[Cast<
+              TKey,
+              keyof VariablesOf<TVariables, TTypes>
+            >],
+          ) => R
+        >
+    >
+  : Result;
 
-const isGraphQLType = (value: unknown): value is GraphQLType =>
-  value instanceof GraphQLScalarType ||
-  value instanceof GraphQLObjectType ||
-  value instanceof GraphQLInterfaceType ||
-  value instanceof GraphQLUnionType ||
-  value instanceof GraphQLEnumType ||
-  value instanceof GraphQLInputObjectType ||
-  value instanceof GraphQLList;
-
-const isStringConstructor = (value: unknown): value is StringConstructor =>
-  value === String || value === NullableStringConstructor;
-
-const isBooleanConstructor = (value: unknown): value is BooleanConstructor =>
-  value === Boolean || value === NullableBooleanConstructor;
-
-const isOneElementTuple = (value: unknown): value is readonly [unknown] =>
-  Array.isArray(value) && value.length === 1;
-
-const getVariableTypeString = (
-  variableType: VariableType,
-  exclamationMarkAdded: boolean = false,
-): string => {
-  // If the type is not a nullable type marked by the `Nullable` function,
-  // add the '!' suffix to the type name,
-  // and set exclamationMarkAdded to true to avoid adding the '!' suffix again.
-  if (
-    !exclamationMarkAdded &&
-    !('__nullable' in variableType && variableType.__nullable === true)
-  ) {
-    return `${getVariableTypeString(variableType, true)}!`;
-  }
-  // If the type is GraphQLType, just use the type name.
-  if (isGraphQLType(variableType)) return variableType.toString();
-
-  // If the type is an one-element tuple, we need to add '[]' around the type name.
-  if (isOneElementTuple(variableType))
-    return `[${getVariableTypeString(variableType[0], false)}]`;
-
-  // If the type is StringConstructor or BooleanConstructor,
-  // we use the name of the type as the type name.
-  if (isStringConstructor(variableType) || isBooleanConstructor(variableType))
-    return variableType.name;
-
-  // Else, the type is a **function**,
-  // and is not StringConstructor or BooleanConstructor,
-  // it means it's a class type,
-  // we use the name of the class as the type name.
-  return variableType.name;
-};
-
-const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
-  `{\n${ast
-    .map(
-      (node) =>
-        `${' '.repeat(indent)}${
-          node.children !== null
-            ? `${node.key} ${buildQueryAst(
-                node.children as QueryNode[],
-                indent + 2,
-              )}`
-            : node.key
-        }`,
-    )
-    .join('\n')}\n${' '.repeat(indent - 2)}}`;
-
-const buildQueryString = <const VT extends object>(
-  operationType: 'query' | 'mutation' | 'subscription',
-  operationName: string,
-  variablesType: VT,
-  ast: readonly QueryNode[],
-) => {
-  const definitionHeader = `${operationType} ${operationName}${
-    Object.keys(variablesType).length > 0
-      ? `(${Object.entries(variablesType)
-          .map(
-            ([key, value]) => `$${key}: ${getVariableTypeString(value, false)}`,
-          )
-          .join(', ')})`
-      : ''
-  } {`;
-  const operationHeader = `${operationName}${
-    Object.keys(variablesType).length > 0
-      ? `(${Object.keys(variablesType)
-          .map((key) => `${key}: $${key}`)
-          .join(', ')})`
-      : ''
-  }`;
-  const operationBody = ast.length > 0 ? ` ${buildQueryAst(ast)}` : '';
-  const queryString = `${definitionHeader}\n  ${operationHeader}${operationBody}\n}`;
-  return queryString;
-};
-
-export const createObjectSelectorOn = <
-  T extends Record<string, any>,
-  const R extends readonly QueryNode[],
->(
-  objectType: ClassType<T> | GraphQLObjectType<T>,
-  selector: ObjectSelector<T, R>,
-): ObjectSelector<T, R> => selector;
-
-export function createQueryStringFor(
-  operationType: 'query' | 'mutation',
-  operationName: string,
-): string;
-export function createQueryStringFor(
-  operationType: 'query' | 'mutation',
-  operationName: string,
-  variablesType: VariablesType,
-): string;
-export function createQueryStringFor<C extends Record<string, any>>(
-  operationType: 'query' | 'mutation',
-  operationName: string,
-  variablesType: VariablesType,
-  returnType:
-    | ClassType<C>
-    | GraphQLObjectType<C>
-    | readonly [ClassType<C>]
-    | readonly [GraphQLObjectType<C>],
-  selector: ObjectSelector<C, readonly QueryNode[]>,
-): string;
-export function createQueryStringFor<
-  C extends Record<string, any>,
-  const R extends readonly QueryNode[],
->(
-  operationType: 'query' | 'mutation',
-  operationName: string,
-  variablesType: VariablesType = {} as any,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  returnType: ValidReturnType = undefined,
-  selector?: ObjectSelector<C, R>,
-): string {
-  const ast =
-    selector === undefined
-      ? []
-      : (selector(getBuilder()) as readonly QueryNode[]);
-  return buildQueryString(operationType, operationName, variablesType, ast);
+type OperationFunction<
+  TMethod extends 'query' | 'mutation' | 'subscription',
+  TTypes extends TypeCollection,
+  TOperations extends FunctionCollection,
+> = <ON extends keyof TOperations>(
+  operationName: ON,
+) => ParseReturnType<TOperations[ON][1], TTypes> extends {
+  result: infer R;
+  type: infer T;
 }
+  ? R extends object
+    ? VariablesOf<TOperations[ON][0], TTypes> extends Record<string, never>
+      ? {
+          select: <const TQueryNodes extends readonly QueryNode[]>(
+            selector: ObjectSelector<R, TQueryNodes>,
+          ) => OperationResponse<
+            TMethod,
+            WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+          >;
+        } & OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+      : {
+          select: <const TQueryNodes extends readonly QueryNode[]>(
+            selector: ObjectSelector<R, TQueryNodes>,
+          ) => {
+            by: (
+              variables: VariablesOf<TOperations[ON][0], TTypes>,
+            ) => OperationResponse<
+              TMethod,
+              WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+            >;
+          } & ByMixin<
+            TOperations[ON][0],
+            TTypes,
+            OperationResponse<
+              TMethod,
+              WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+            >
+          > &
+            (RequiredFieldsCount<TOperations[ON][0]> extends 0
+              ? OperationResponse<
+                  TMethod,
+                  WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+                >
+              : unknown);
+          by: (
+            variables: VariablesOf<TOperations[ON][0], TTypes>,
+          ) => OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>;
+        } & ByMixin<
+          TOperations[ON][0],
+          TTypes,
+          OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+        > &
+          (RequiredFieldsCount<TOperations[ON][0]> extends 0
+            ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+            : unknown)
+    : TOperations[typeof operationName][0] extends Record<string, never>
+    ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+    : {
+        by: (
+          variables: VariablesOf<TOperations[typeof operationName][0], TTypes>,
+        ) => OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>;
+      } & ByMixin<
+        TOperations[ON][0],
+        TTypes,
+        OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+      > &
+        (RequiredFieldsCount<TOperations[ON][0]> extends 0
+          ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+          : unknown)
+  : never;
 
-export const query = (operationName: string) => ({
-  $operationName: operationName,
-  $returnType: void 0 as void,
-  variables: <const VT extends VariablesType>(variablesType: VT) => ({
-    $operationName: operationName,
-    $returnType: void 0 as void,
-    input: (variables: VariablesOf<VT>) => ({
-      $operationName: operationName,
-      $returnType: void 0 as void,
-      $vars: variables,
-      select: <T extends object = any>(
-        selector: ObjectSelector<T, readonly QueryNode[]>,
-      ) => ({
-        $operationName: operationName,
-        $returnType: null as unknown as T,
-        $vars: variables,
-        toQueryString() {
-          const ast = selector(getBuilder());
-          return buildQueryString('query', operationName, variablesType, ast);
-        },
-      }),
-      toQueryString: () =>
-        buildQueryString('query', operationName, variablesType, []),
-    }),
-    select: <T extends object = any>(
-      selector: ObjectSelector<T, readonly QueryNode[]>,
-    ) => ({
-      $operationName: operationName,
-      $returnType: null as unknown as T,
-      toQueryString() {
-        const ast = selector(getBuilder());
-        return buildQueryString('query', operationName, variablesType, ast);
-      },
-    }),
-    toQueryString: () =>
-      buildQueryString('query', operationName, variablesType, []),
-  }),
-  select: <T extends object = any>(
-    selector: ObjectSelector<T, readonly QueryNode[]>,
-  ) => ({
-    $operationName: operationName,
-    $returnType: null as unknown as T,
-    toQueryString() {
-      const ast = selector(getBuilder());
-      return buildQueryString('query', operationName, {}, ast);
-    },
-  }),
-  toQueryString: () => buildQueryString('query', operationName, {}, []),
-});
+type AbstractEndpoint = {
+  getRequestClient: () => RequestClient;
+  getWSClient: () => WSClient;
+};
 
-export const mutation = (operationName: string) => ({
-  $operationName: operationName,
-  $returnType: void 0 as void,
-  variables: <const VT extends VariablesType>(variablesType: VT) => ({
-    $operationName: operationName,
-    $returnType: void 0 as void,
-    input: (variables: VariablesOf<VT>) => ({
-      $operationName: operationName,
-      $returnType: void 0 as void,
-      $vars: variables,
-      select: <T extends object = any>(
-        selector: ObjectSelector<T, readonly QueryNode[]>,
-      ) => ({
-        $operationName: operationName,
-        $returnType: null as unknown as T,
-        $vars: variables,
-        toQueryString() {
-          const ast = selector(getBuilder());
-          return buildQueryString(
-            'mutation',
-            operationName,
-            variablesType,
-            ast,
-          );
-        },
-      }),
-      toQueryString: () =>
-        buildQueryString('mutation', operationName, variablesType, []),
-    }),
-    select: <T extends object = any>(
-      selector: ObjectSelector<T, readonly QueryNode[]>,
-    ) => ({
-      $operationName: operationName,
-      $returnType: null as unknown as T,
-      toQueryString() {
-        const ast = selector(getBuilder());
-        return buildQueryString('mutation', operationName, variablesType, ast);
-      },
-    }),
-    toQueryString: () =>
-      buildQueryString('mutation', operationName, variablesType, []),
-  }),
-  select: <T extends object = any>(
-    selector: ObjectSelector<T, readonly QueryNode[]>,
-  ) => ({
-    $operationName: operationName,
-    $returnType: null as unknown as T,
-    toQueryString() {
-      const ast = selector(getBuilder());
-      return buildQueryString('mutation', operationName, {}, ast);
-    },
-  }),
-  toQueryString: () => buildQueryString('mutation', operationName, {}, []),
-});
+export type Endpoint<
+  TTypes extends TypeCollection,
+  TQueries extends FunctionCollection = Record<string, never>,
+  TMutations extends FunctionCollection = Record<string, never>,
+  TSubscriptions extends FunctionCollection = Record<string, never>,
+> = AbstractEndpoint &
+  (TQueries extends Record<string, never>
+    ? Record<string, never>
+    : { query: OperationFunction<'query', TTypes, TQueries> }) &
+  (TMutations extends Record<string, never>
+    ? Record<string, never>
+    : { mutation: OperationFunction<'mutation', TTypes, TMutations> }) &
+  (TSubscriptions extends Record<string, never>
+    ? Record<string, never>
+    : {
+        subscription: OperationFunction<'subscription', TTypes, TSubscriptions>;
+      });
 
-export const subscription = (operationName: string) => ({
-  $operationName: operationName,
-  $returnType: void 0 as void,
-  variables: <const VT extends VariablesType>(variablesType: VT) => ({
-    $operationName: operationName,
-    $returnType: void 0 as void,
-    input: (variables: VariablesOf<VT>) => ({
-      $operationName: operationName,
-      $returnType: void 0 as void,
-      $vars: variables,
-      select: <T extends object = any>(
-        selector: ObjectSelector<T, readonly QueryNode[]>,
-      ) => ({
-        $operationName: operationName,
-        $returnType: null as unknown as T,
-        $vars: variables,
-        toQueryString() {
-          const ast = selector(getBuilder());
-          return buildQueryString(
-            'subscription',
-            operationName,
-            variablesType,
-            ast,
-          );
-        },
-      }),
-      toQueryString: () =>
-        buildQueryString('subscription', operationName, variablesType, []),
-    }),
-    select: <T extends object = any>(
-      selector: ObjectSelector<T, readonly QueryNode[]>,
-    ) => ({
-      $operationName: operationName,
-      $returnType: null as unknown as T,
-      toQueryString() {
-        const ast = selector(getBuilder());
-        return buildQueryString(
-          'subscription',
-          operationName,
-          variablesType,
-          ast,
-        );
-      },
-    }),
-    toQueryString: () =>
-      buildQueryString('subscription', operationName, variablesType, []),
-  }),
-  select: <T extends object = any>(
-    selector: ObjectSelector<T, readonly QueryNode[]>,
-  ) => ({
-    $operationName: operationName,
-    $returnType: null as unknown as T,
-    toQueryString() {
-      const ast = selector(getBuilder());
-      return buildQueryString('subscription', operationName, {}, ast);
-    },
-  }),
-  toQueryString: () => buildQueryString('subscription', operationName, {}, []),
-});
-
-const graphQLDefaults = scope({
-  True: 'true',
-  False: 'false',
-  Null: 'null',
-
-  ID: 'string | "ID"',
-  Int: 'number | 0',
-  Float: 'number | 1',
-  String: 'string | "String"',
-  Boolean: 'boolean',
-}).compile();
-
-export const typesOptions = {
-  standard: false,
-  includes: [graphQLDefaults],
-} satisfies ScopeOptions;
-
-export const types: <const T extends Types<T>>(types: T) => T = <
-  const T extends Types<T>,
+const _createEndpoint = <
+  T extends
+    | {
+        Query?: FunctionCollection;
+        Mutation?: FunctionCollection;
+        Subscription?: FunctionCollection;
+      }
+    | TypeCollection,
+  TTypes extends TypeCollection = Cast<
+    Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
+    TypeCollection
+  >,
+  TQueries extends FunctionCollection = Cast<
+    WithDefault<T['Query'], Record<string, never>>,
+    FunctionCollection
+  >,
+  TMutations extends FunctionCollection = Cast<
+    WithDefault<T['Mutation'], Record<string, never>>,
+    FunctionCollection
+  >,
+  TSubscriptions extends FunctionCollection = Cast<
+    WithDefault<T['Subscription'], Record<string, never>>,
+    FunctionCollection
+  >,
 >(
-  types: T,
-) => types;
+  requestClient: RequestClient,
+  wsClient: WSClient,
+  rawTypes: Types<T>,
+): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
+  const cancelledPromises = new WeakSet<Promise<any>>();
 
-export type GraphQLIntuitiveClientOptions<
-  T extends Types<T> = Record<string, never>,
-> = RequestClient['requestConfig'] & {
-  types?: Types<T>;
-};
+  const types = omit(
+    rawTypes,
+    'Query',
+    'Mutation',
+    'Subscription',
+  ) as TypeCollection;
 
-const parseType = (node: Type['node']): VariableType => {
-  const createClass = (className: string): new (...args: any[]) => any =>
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
-    new Function(`return class ${className} {}`)();
+  const queries = (rawTypes.Query ?? {}) as FunctionCollection;
+  const mutations = (rawTypes.Mutation ?? {}) as FunctionCollection;
+  const subscriptions = (rawTypes.Subscription ?? {}) as FunctionCollection;
 
-  const isConfigNode = (node: TypeNode | ConfigNode): node is ConfigNode =>
-    'config' in node;
-
-  const parseNode = <N extends Type['node']>(node: N): VariableType => {
-    if (typeof node === 'string')
-      switch (node) {
-        case 'ID':
-          return GraphQLID;
-        case 'Int':
-          return GraphQLInt;
-        case 'Float':
-          return GraphQLFloat;
-        case 'String':
-          return String;
-        case 'True':
-        case 'False':
-        case 'Boolean':
-          return Boolean;
-        case 'Null':
-          throw new Error(`'${node}' is unresolvable`);
-        default:
-          return createClass(node);
-      }
-
-    if (typeof node !== 'object')
-      throw new Error(`${String(node)} is not a valid node`);
-
-    if (isConfigNode(node))
-      throw new Error('config node is not currently supported');
-
-    if ('null' in node && node.null)
-      return Nullable(parseNode(omit(node, 'null')));
-    if (Array.isArray(node) && node.length === 2 && node[0] === '?')
-      return Nullable(parseNode(node[1]));
-
-    if (
-      'object' in node &&
-      typeof node.object === 'object' &&
-      'class' in node.object &&
-      node.object.class === Array &&
-      'props' in node.object &&
-      typeof node.object.props === 'object' &&
-      '[index]' in node.object.props
-    )
-      return [parseNode(node.object.props['[index]'] as Type['node'])];
-
-    if (
-      'string' in node &&
-      Array.isArray(node.string) &&
-      node.string.length === 2 &&
-      typeof node.string[1] === 'object' &&
-      'value' in node.string[1]
-    )
-      return parseNode(node.string[1].value);
-
-    if (
-      'number' in node &&
-      Array.isArray(node.number) &&
-      node.number.length === 2 &&
-      typeof node.number[1] === 'object' &&
-      'value' in node.number[1]
-    )
-      return node.number[1].value === 0 ? GraphQLInt : GraphQLFloat;
-
-    if ('boolean' in node && node.boolean === true) return Boolean;
-
-    if (
-      'object' in node &&
-      typeof node.object === 'object' &&
-      'props' in node.object &&
-      typeof node.object.props === 'object' &&
-      '[index]' in node.object.props
-    )
-      return [parseNode(node.object.props['[index]'] as Type['node'])];
-
-    console.log(node);
-    throw new Error(`${String(node)} is unresolvable`);
-  };
-
-  return parseNode(node);
-};
-
-export class GraphQLIntuitiveClient<
-  const TTypes extends Types<TTypes> = Record<string, never>,
-> {
-  private readonly url: string;
-  private readonly options?: GraphQLIntuitiveClientOptions<TTypes>;
-  private readonly types: TTypes;
-  private readonly compiledTypes: ReturnType<
-    ReturnType<typeof scope<TTypes, typeof typesOptions>>['compile']
-  >;
-  private readonly requestClient: RequestClient;
-  private wsClient?: WSClient;
-
-  constructor(url: string, options?: GraphQLIntuitiveClientOptions<TTypes>) {
-    this.url = url;
-    this.options = options;
-    this.types = (options?.types ?? {}) as unknown as TTypes;
-    this.compiledTypes = scope(this.types, typesOptions).compile();
-    this.requestClient = new RequestClient(url, options);
-  }
-
-  withWebSocketClient(options: WSOptions): GraphQLIntuitiveClient<TTypes> {
-    if (this.wsClient !== undefined) {
-      throw new Error('WebSocket client already exists.');
+  const typeParser = createTypeParser(types);
+  const compileOperations = (
+    operations: FunctionCollection,
+  ): Record<
+    string,
+    {
+      variableTypes: Record<string, string>;
+      returnType: string;
+      hasVariables: boolean;
+      isReturnTypeSimple: boolean;
     }
-    this.wsClient = createWSClient(options);
-    return this;
-  }
-
-  getRequestClient(): RequestClient {
-    return this.requestClient;
-  }
-
-  getWSClient(): WSClient | undefined {
-    return this.wsClient;
-  }
-
-  query$: (operationName: string) => {
-    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
-      variablesType: VT,
-    ) => {
-      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
-        select: <const R extends readonly QueryNode[]>(
-          ...selector: InferValidReturnTypeArkInternal<
-            T,
-            TTypes
-          >['result'] extends object
-            ? [
-                ObjectSelector<
-                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                  R
-                >,
-              ]
-            : []
-        ) => {
-          by: (
-            variables: VariablesOfArk<VT, TTypes>,
-          ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
-            result: object;
-            type: infer TType extends `${any}`;
-          }
-            ? QueryPromise<ParseNodesByType<R, TType>>
-            : QueryPromise<
-                InferValidReturnTypeArkInternal<T, TTypes>['result']
-              >;
-        };
-      };
-    };
-    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
-      select: <const R extends readonly QueryNode[]>(
-        ...selector: InferValidReturnTypeArkInternal<
-          T,
-          TTypes
-        >['result'] extends object
-          ? [
-              ObjectSelector<
-                InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                R
-              >,
-            ]
-          : []
-      ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
-        result: object;
-        type: infer TType extends `${any}`;
-      }
-        ? QueryPromise<ParseNodesByType<R, TType>>
-        : QueryPromise<InferValidReturnTypeArkInternal<T, TTypes>['result']>;
-    };
-  } = (operationName: string) => ({
-    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
-      variablesType: VT,
-    ) => ({
-      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => ({
-        select: <const R extends readonly QueryNode[]>(
-          ...selector: InferValidReturnTypeArkInternal<
-            T,
-            TTypes
-          >['result'] extends object
-            ? [
-                ObjectSelector<
-                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                  R
-                >,
-              ]
-            : []
-        ) => ({
-          by: (
-            variables: VariablesOfArk<VT, TTypes>,
-          ): InferValidReturnTypeArkInternal<T, TTypes> extends {
-            result: object;
-            type: infer TType extends `${any}`;
-          }
-            ? QueryPromise<ParseNodesByType<R, TType>>
-            : QueryPromise<
-                InferValidReturnTypeArkInternal<T, TTypes>['result']
-              > => {
-            const ast = selector.length === 0 ? [] : selector[0](getBuilder());
-            const queryString = buildQueryString(
-              'query',
-              operationName,
-              Object.entries(variablesType).reduce(
-                (prev, [key, value]) => ({
-                  ...prev,
-                  [key]: parseType(
-                    (
-                      scope(
-                        {
-                          ...this.types,
-                          __return__: { __return__: value as any },
-                        },
-                        typesOptions,
-                      ).compile().__return__.node as any
-                    ).object.props.__return__,
-                  ),
-                }),
-                {},
-              ),
-              ast,
-            );
-            const result = this.requestClient
-              .request(queryString, variables as any)
-              .then((data) => {
-                return (data as any)[operationName];
-              });
-            (result as any).toQueryString = () => queryString;
-            (result as any).toRequestBody = () => ({
-              query: queryString,
-              variables,
-            });
-            return result as any;
-          },
-        }),
+  > =>
+    Object.entries(operations).reduce(
+      (prev, [operationName, [variablesType, returnType]]) => ({
+        ...prev,
+        [operationName]: {
+          variableTypes: Object.entries(variablesType).reduce(
+            (prev, [variableName, variableType]) => {
+              const parsedType = typeParser.parse(variableType);
+              return {
+                ...prev,
+                [variableName.replace(/\?$/, '')]: variableName.endsWith('?')
+                  ? typeParser.nullable(parsedType)
+                  : parsedType,
+              };
+            },
+            {},
+          ),
+          returnType: typeParser.parse(returnType),
+          hasVariables: Object.keys(variablesType).length > 0,
+          isReturnTypeSimple: typeParser.isSimpleType(returnType),
+        },
       }),
-    }),
-    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => ({
-      select: <const R extends readonly QueryNode[]>(
-        ...selector: InferValidReturnTypeArkInternal<
-          T,
-          TTypes
-        >['result'] extends object
-          ? [
-              ObjectSelector<
-                InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                R
-              >,
-            ]
-          : []
-      ): InferValidReturnTypeArkInternal<T, TTypes> extends {
-        result: object;
-        type: infer TType extends `${any}`;
-      }
-        ? QueryPromise<ParseNodesByType<R, TType>>
-        : QueryPromise<
-            InferValidReturnTypeArkInternal<T, TTypes>['result']
-          > => {
-        const ast = selector.length === 0 ? [] : selector[0](getBuilder());
-        const queryString = buildQueryString('query', operationName, {}, ast);
-        const result = this.requestClient
-          .request(queryString, {})
-          .then((data) => {
-            return (data as any)[operationName];
-          });
-        (result as any).toQueryString = () => queryString;
-        (result as any).toRequestBody = () => ({
-          query: queryString,
-          variables: {},
-        });
-        return result as any;
-      },
-    }),
-  });
+      {},
+    );
 
-  mutation$: (operationName: string) => {
-    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
-      variablesType: VT,
-    ) => {
-      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
-        select: <const R extends readonly QueryNode[]>(
-          ...selector: InferValidReturnTypeArkInternal<
-            T,
-            TTypes
-          >['result'] extends object
-            ? [
-                ObjectSelector<
-                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                  R
-                >,
-              ]
-            : []
-        ) => {
-          by: (
-            variables: VariablesOfArk<VT, TTypes>,
-          ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
-            result: object;
-            type: infer TType extends `${any}`;
-          }
-            ? QueryPromise<ParseNodesByType<R, TType>>
-            : QueryPromise<
-                InferValidReturnTypeArkInternal<T, TTypes>['result']
-              >;
-        };
-      };
-    };
-    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => {
-      select: <const R extends readonly QueryNode[]>(
-        ...selector: InferValidReturnTypeArkInternal<
-          T,
-          TTypes
-        >['result'] extends object
-          ? [
-              ObjectSelector<
-                InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                R
-              >,
-            ]
-          : []
-      ) => InferValidReturnTypeArkInternal<T, TTypes> extends {
-        result: object;
-        type: infer TType extends `${any}`;
-      }
-        ? QueryPromise<ParseNodesByType<R, TType>>
-        : QueryPromise<InferValidReturnTypeArkInternal<T, TTypes>['result']>;
-    };
-  } = (operationName: string) => ({
-    variables: <const VT extends VariablesTypeArk<VT, TTypes>>(
-      variablesType: VT,
-    ) => ({
-      returns: <T extends ValidReturnTypeArk<TTypes> = any>() => ({
-        select: <const R extends readonly QueryNode[]>(
-          ...selector: InferValidReturnTypeArkInternal<
-            T,
-            TTypes
-          >['result'] extends object
-            ? [
-                ObjectSelector<
-                  InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                  R
-                >,
-              ]
-            : []
-        ) => ({
-          by: (
-            variables: VariablesOfArk<VT, TTypes>,
-          ): InferValidReturnTypeArkInternal<T, TTypes> extends {
-            result: object;
-            type: infer TType extends `${any}`;
-          }
-            ? QueryPromise<ParseNodesByType<R, TType>>
-            : QueryPromise<
-                InferValidReturnTypeArkInternal<T, TTypes>['result']
-              > => {
-            const ast = selector.length === 0 ? [] : selector[0](getBuilder());
-            const queryString = buildQueryString(
-              'mutation',
-              operationName,
-              Object.entries(variablesType).reduce(
-                (prev, [key, value]) => ({
-                  ...prev,
-                  [key]: parseType(
-                    (
-                      scope(
-                        {
-                          ...this.types,
-                          __return__: { __return__: value as any },
-                        },
-                        typesOptions,
-                      ).compile().__return__.node as any
-                    ).object.props.__return__,
-                  ),
-                }),
-                {},
-              ),
-              ast,
-            );
-            const result = this.requestClient
-              .request(queryString, variables as any)
-              .then((data) => {
-                return (data as any)[operationName];
-              });
-            (result as any).toQueryString = () => queryString;
-            (result as any).toRequestBody = () => ({
-              query: queryString,
-              variables,
-            });
-            return result as any;
-          },
-        }),
-      }),
-    }),
-    returns: <T extends ValidReturnTypeArk<TTypes> = any>() => ({
-      select: <const R extends readonly QueryNode[]>(
-        ...selector: InferValidReturnTypeArkInternal<
-          T,
-          TTypes
-        >['result'] extends object
-          ? [
-              ObjectSelector<
-                InferValidReturnTypeArkInternal<T, TTypes>['result'],
-                R
-              >,
-            ]
-          : []
-      ): InferValidReturnTypeArkInternal<T, TTypes> extends {
-        result: object;
-        type: infer TType extends `${any}`;
-      }
-        ? QueryPromise<ParseNodesByType<R, TType>>
-        : QueryPromise<
-            InferValidReturnTypeArkInternal<T, TTypes>['result']
-          > => {
-        const ast = selector.length === 0 ? [] : selector[0](getBuilder());
-        const queryString = buildQueryString(
-          'mutation',
-          operationName,
-          {},
-          ast,
-        );
-        const result = this.requestClient
-          .request(queryString, {})
-          .then((data) => {
-            return (data as any)[operationName];
-          });
-        (result as any).toQueryString = () => queryString;
-        (result as any).toRequestBody = () => ({
-          query: queryString,
-          variables: {},
-        });
-        return result as any;
-      },
-    }),
-  });
+  const preCompiledQueries = compileOperations(queries);
+  const preCompiledMutations = compileOperations(mutations);
+  const preCompiledSubscriptions = compileOperations(subscriptions);
 
-  query(operationName: string): () => QueryPromise<void>;
-  query<const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-  ): (variables: VariablesOf<VT>) => QueryPromise<void>;
-  query<
-    T extends NullablePrimitiveTypeAndArray,
-    const VT extends VariablesType,
+  const buildOperationResponse = <
+    TMethod extends 'query' | 'mutation' | 'subscription',
   >(
+    method: TMethod,
     operationName: string,
-    variablesType: VT,
-    returnType: T,
-  ): (
-    variables: VariablesOf<VT>,
-  ) => QueryPromise<ParseNullablePrimitiveTypeAndArray<T>>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: MaybeNull<ClassType<C>> | MaybeNull<GraphQLObjectType<C>>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<ParseNodes<R> | null>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: ClassType<C> | GraphQLObjectType<C>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<ParseNodes<R>>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [MaybeNull<ClassType<C>>]>
-      | MaybeNull<readonly [MaybeNull<GraphQLObjectType<C>>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R> | null> | null>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [ClassType<C>]>
-      | MaybeNull<readonly [GraphQLObjectType<C>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R>> | null>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | readonly [MaybeNull<ClassType<C>>]
-      | readonly [MaybeNull<GraphQLObjectType<C>>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R> | null>>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: readonly [ClassType<C>] | readonly [GraphQLObjectType<C>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R>>>;
-  query<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT = {} as any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    returnType: ValidReturnType = undefined,
-  ) {
-    return <const R extends readonly QueryNode[]>(
-      variables?: VariablesOf<VT>,
-      selector?: ObjectSelector<C, R>,
-    ) => {
-      variables ??= {} as any;
-      const ast =
-        selector === undefined
-          ? []
-          : (selector(getBuilder()) as readonly QueryNode[]);
-      const queryString = buildQueryString(
-        'query',
-        operationName,
-        variablesType,
-        ast,
-      );
-      const result = this.requestClient
-        .request(queryString, variables)
-        .then((data) => {
-          return (data as any)[operationName];
-        });
-      (result as any).toQueryString = () => queryString;
-      (result as any).toRequestBody = () => ({
-        query: queryString,
-        variables,
-      });
-      return result as any;
-    };
-  }
+    variableTypes: Record<string, string>,
+    variables: Record<string, any>,
+    ast: readonly QueryNode[],
+  ): TMethod extends 'subscription'
+    ? SubscriptionResponse<any>
+    : QueryPromise<any> => {
+    const queryString = buildQueryString(
+      method,
+      operationName,
+      variableTypes,
+      ast,
+    );
 
-  mutation(operationName: string): () => QueryPromise<void>;
-  mutation<const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-  ): (variables: VariablesOf<VT>) => QueryPromise<void>;
-  mutation<
-    T extends NullablePrimitiveTypeAndArray,
-    const VT extends VariablesType,
-  >(
-    operationName: string,
-    variablesType: VT,
-    returnType: T,
-  ): (
-    variables: VariablesOf<VT>,
-  ) => QueryPromise<ParseNullablePrimitiveTypeAndArray<T>>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: MaybeNull<ClassType<C>> | MaybeNull<GraphQLObjectType<C>>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<ParseNodes<R> | null>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: ClassType<C> | GraphQLObjectType<C>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<ParseNodes<R>>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [MaybeNull<ClassType<C>>]>
-      | MaybeNull<readonly [MaybeNull<GraphQLObjectType<C>>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R> | null> | null>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [ClassType<C>]>
-      | MaybeNull<readonly [GraphQLObjectType<C>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R>> | null>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | readonly [MaybeNull<ClassType<C>>]
-      | readonly [MaybeNull<GraphQLObjectType<C>>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R> | null>>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: readonly [ClassType<C>] | readonly [GraphQLObjectType<C>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => QueryPromise<Array<ParseNodes<R>>>;
-  mutation<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT = {} as any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    returnType: ValidReturnType = undefined,
-  ) {
-    return <const R extends readonly QueryNode[]>(
-      variables?: VariablesOf<VT>,
-      selector?: ObjectSelector<C, R>,
-    ) => {
-      variables ??= {} as any;
-      const ast =
-        selector === undefined
-          ? []
-          : (selector(getBuilder()) as readonly QueryNode[]);
-      const queryString = buildQueryString(
-        'mutation',
-        operationName,
-        variablesType,
-        ast,
-      );
-      const result = this.requestClient
-        .request(queryString, variables)
-        .then((data) => {
-          return (data as any)[operationName];
-        });
-      (result as any).toQueryString = () => queryString;
-      (result as any).toRequestBody = () => ({
-        query: queryString,
-        variables,
-      });
-      return result as any;
-    };
-  }
-
-  subscription(operationName: string): () => SubscriptionResponse<void>;
-  subscription<const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-  ): (variables: VariablesOf<VT>) => SubscriptionResponse<void>;
-  subscription<
-    T extends NullablePrimitiveTypeAndArray,
-    const VT extends VariablesType,
-  >(
-    operationName: string,
-    variablesType: VT,
-    returnType: T,
-  ): (
-    variables: VariablesOf<VT>,
-  ) => SubscriptionResponse<ParseNullablePrimitiveTypeAndArray<T>>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: MaybeNull<ClassType<C>> | MaybeNull<GraphQLObjectType<C>>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<ParseNodes<R> | null>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: ClassType<C> | GraphQLObjectType<C>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<ParseNodes<R>>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [MaybeNull<ClassType<C>>]>
-      | MaybeNull<readonly [MaybeNull<GraphQLObjectType<C>>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<Array<ParseNodes<R> | null> | null>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | MaybeNull<readonly [ClassType<C>]>
-      | MaybeNull<readonly [GraphQLObjectType<C>]>,
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<Array<ParseNodes<R>> | null>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType:
-      | readonly [MaybeNull<ClassType<C>>]
-      | readonly [MaybeNull<GraphQLObjectType<C>>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<Array<ParseNodes<R> | null>>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT,
-    returnType: readonly [ClassType<C>] | readonly [GraphQLObjectType<C>],
-  ): <const R extends readonly QueryNode[]>(
-    variables: VariablesOf<VT>,
-    selector: ObjectSelector<C, R>,
-  ) => SubscriptionResponse<Array<ParseNodes<R>>>;
-  subscription<C extends Record<string, any>, const VT extends VariablesType>(
-    operationName: string,
-    variablesType: VT = {} as any,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    returnType: ValidReturnType = undefined,
-  ) {
-    return <const R extends readonly QueryNode[]>(
-      variables?: VariablesOf<VT>,
-      selector?: ObjectSelector<C, R>,
-    ) => {
-      variables ??= {} as any;
-      const ast =
-        selector === undefined
-          ? []
-          : (selector(getBuilder()) as readonly QueryNode[]);
-      const queryString = buildQueryString(
-        'subscription',
-        operationName,
-        variablesType,
-        ast,
-      );
+    if (method === 'subscription')
       return {
         subscribe: (
           subscriber: (data: any) => void,
           onError?: (error: any) => void,
           onComplete?: () => void,
         ) => {
-          if (this.wsClient === undefined) {
-            throw new Error(
-              'Cannot subscribe to a subscription without a WebSocket client. ' +
-                'Use the `withWebSocketClient` method to provide one.',
-            );
-          }
-          const wsClient = this.wsClient;
           const unsubscribe = wsClient.subscribe(
-            {
-              query: queryString,
-              variables,
-            },
+            { query: queryString, variables },
             {
               next: (value) => {
                 if (value.errors) {
@@ -1185,11 +299,208 @@ export class GraphQLIntuitiveClient<
           return unsubscribe;
         },
         toQueryString: () => queryString,
-        toRequestBody: () => ({
-          query: queryString,
-          variables,
-        }),
-      } as SubscriptionResponse<any>;
+        toRequestBody: () => ({ query: queryString, variables }),
+      } as any;
+
+    const result: any = Promise.resolve(null).then(() => {
+      if (cancelledPromises.has(result)) return;
+
+      return requestClient
+        .request(queryString, variables)
+        .then((data) => (data as any)[operationName]);
+    });
+    result.toQueryString = () => queryString;
+    result.toRequestBody = () => ({ query: queryString, variables });
+    return result;
+  };
+
+  const buildOperationFunction =
+    (method: 'query' | 'mutation' | 'subscription') =>
+    (operationName: string) => {
+      const rawOperation =
+        method === 'query'
+          ? queries[operationName]
+          : method === 'mutation'
+          ? mutations[operationName]
+          : subscriptions[operationName];
+      const operation =
+        method === 'query'
+          ? preCompiledQueries[operationName]
+          : method === 'mutation'
+          ? preCompiledMutations[operationName]
+          : preCompiledSubscriptions[operationName];
+
+      let result: any = {};
+      if (!operation.hasVariables) {
+        const ast = operation.isReturnTypeSimple
+          ? []
+          : parseSelector(createAllSelector(operation.returnType, types));
+        result = buildOperationResponse(method, operationName, {}, {}, ast);
+
+        if (operation.isReturnTypeSimple) return result;
+      }
+
+      if (operation.hasVariables) {
+        if (requiredFieldsCount(rawOperation[0]) === 0) {
+          const ast = operation.isReturnTypeSimple
+            ? []
+            : parseSelector(createAllSelector(operation.returnType, types));
+          result = buildOperationResponse(method, operationName, {}, {}, ast);
+        }
+
+        result.by = (variables: any) => {
+          cancelledPromises.add(result);
+          const ast = operation.isReturnTypeSimple
+            ? []
+            : parseSelector(createAllSelector(operation.returnType, types));
+          return buildOperationResponse(
+            method,
+            operationName,
+            pick(operation.variableTypes, ...Object.keys(variables)),
+            variables,
+            ast,
+          );
+        };
+
+        if (requiredFieldsCount(rawOperation[0]) === 1) {
+          const variableName = Object.keys(operation.variableTypes)[0];
+          result[`by${capitalize(variableName)}`] = (arg: any) =>
+            result.by({ [variableName]: arg });
+        }
+        if (requiredFieldsCount(rawOperation[0]) === 0) {
+          for (const variableName of Object.keys(operation.variableTypes)) {
+            result[`by${capitalize(variableName)}`] = (arg: any) =>
+              result.by({ [variableName]: arg });
+          }
+        }
+
+        if (operation.isReturnTypeSimple) return result;
+      }
+
+      result.select = (selector: any) => {
+        if (!operation.hasVariables) {
+          cancelledPromises.add(result);
+          const ast = parseSelector(selector);
+          return buildOperationResponse(method, operationName, {}, {}, ast);
+        }
+
+        if (requiredFieldsCount(rawOperation[0]) === 0) {
+          cancelledPromises.add(result);
+          const by = result.by;
+          const select = result.select;
+          const ast = parseSelector(selector);
+          result = buildOperationResponse(method, operationName, {}, {}, ast);
+          if (by) result.by = by;
+          result.select = select;
+        }
+
+        const res: any = {
+          by: (variables: any) => {
+            cancelledPromises.add(result);
+            const ast = parseSelector(selector);
+            return buildOperationResponse(
+              method,
+              operationName,
+              pick(operation.variableTypes, ...Object.keys(variables)),
+              variables,
+              ast,
+            );
+          },
+        };
+
+        if (requiredFieldsCount(rawOperation[0]) === 1) {
+          const variableName = Object.keys(operation.variableTypes)[0];
+          res[`by${capitalize(variableName)}`] = (arg: any) =>
+            res.by({ [variableName]: arg });
+        }
+        if (requiredFieldsCount(rawOperation[0]) === 0) {
+          for (const variableName of Object.keys(operation.variableTypes)) {
+            res[`by${capitalize(variableName)}`] = (arg: any) =>
+              res.by({ [variableName]: arg });
+          }
+        }
+
+        return res;
+      };
+
+      return result;
     };
-  }
-}
+
+  return {
+    query: buildOperationFunction('query'),
+    mutation: buildOperationFunction('mutation'),
+    subscription: buildOperationFunction('subscription'),
+
+    getRequestClient: () => requestClient,
+    getWSClient: () => wsClient,
+  } as any;
+};
+
+export type ClientOptions = RequestClient['requestConfig'];
+export type WSOptions = WSClientOptions;
+
+export const createClient = (
+  url: string,
+  options?: RequestClient['requestConfig'],
+) => ({
+  withWebSocketClient: (wsOptions: WSOptions) => ({
+    registerTypes: <
+      T extends
+        | {
+            Query?: FunctionCollection;
+            Mutation?: FunctionCollection;
+            Subscription?: FunctionCollection;
+          }
+        | TypeCollection,
+      TTypes extends TypeCollection = Cast<
+        Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
+        TypeCollection
+      >,
+      TQueries extends FunctionCollection = Cast<
+        WithDefault<T['Query'], Record<string, never>>,
+        FunctionCollection
+      >,
+      TMutations extends FunctionCollection = Cast<
+        WithDefault<T['Mutation'], Record<string, never>>,
+        FunctionCollection
+      >,
+      TSubscriptions extends FunctionCollection = Cast<
+        WithDefault<T['Subscription'], Record<string, never>>,
+        FunctionCollection
+      >,
+    >(
+      types: Types<T>,
+    ): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
+      const requestClient = new RequestClient(url, options);
+      const wsClient = createWSClient(wsOptions);
+      return _createEndpoint(requestClient, wsClient, types);
+    },
+  }),
+
+  registerTypes: <
+    T extends
+      | {
+          Query?: FunctionCollection;
+          Mutation?: FunctionCollection;
+          Subscription?: FunctionCollection;
+        }
+      | TypeCollection,
+    TTypes extends TypeCollection = Cast<
+      Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
+      TypeCollection
+    >,
+    TQueries extends FunctionCollection = Cast<
+      WithDefault<T['Query'], Record<string, never>>,
+      FunctionCollection
+    >,
+    TMutations extends FunctionCollection = Cast<
+      WithDefault<T['Mutation'], Record<string, never>>,
+      FunctionCollection
+    >,
+  >(
+    types: Types<T>,
+  ): Endpoint<TTypes, TQueries, TMutations> => {
+    const requestClient = new RequestClient(url, options);
+    return _createEndpoint(requestClient, null as any, types);
+  },
+});

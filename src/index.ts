@@ -1,49 +1,11 @@
-import {
-  NullableBooleanConstructor,
-  NullableStringConstructor,
-} from './client';
-
-import type { MaybeNull } from './types/graphql-types';
-
+export { createClient } from './client';
 export {
-  GraphQLFloat as Float,
-  GraphQLID as ID,
-  GraphQLInt as Int,
-} from 'graphql';
-export {
-  GraphQLIntuitiveClient,
-  createObjectSelectorOn,
-  createQueryStringFor,
-  query,
-  mutation,
-  subscription,
-  types,
-} from './client';
+  queryString,
+  mutationString,
+  subscriptionString,
+} from './query-builder';
+export { selectorBuilder } from './selector';
+export { types } from './types';
 
-export type { Types } from './types/graphql-types-ark';
-
-export type { GraphQLIntuitiveClientOptions } from './client';
-
-export function Nullable<const T extends readonly [any]>(type: T): MaybeNull<T>;
-export function Nullable<T>(type: T): MaybeNull<T>;
-export function Nullable<T>(type: T): MaybeNull<T> {
-  if (type === String) {
-    return NullableStringConstructor as any;
-  }
-  if (type === Boolean) {
-    return NullableBooleanConstructor as any;
-  }
-  if (Array.isArray(type)) {
-    const result = [...type] as any;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    result.__nullable = true;
-    return result;
-  }
-  if (typeof type === 'object') {
-    const result = Object.create(type);
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    result.__nullable = true;
-    return result;
-  }
-  throw new Error('Invalid type');
-}
+export type { Types } from './types';
+export type { Endpoint, ClientOptions, WSOptions } from './client';

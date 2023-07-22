@@ -6,7 +6,7 @@ Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutatio
 
 **WARNING:** This package is still in development, and the API may change in the future.
 
-**WARNING:** Turn on `strictNullChecks` in your `tsconfig.json` to get the best experience. Otherwise, graphql-intuitive-request will not be able to infer some nullable fields correctly, and would just infer them as non-nullable ones. However, it is not quite necessary, as graphql-intuitive-request will still work properly without `strictNullChecks`.
+**WARNING:** Turn on `strictNullChecks` in your `tsconfig.json` to get the best experience. Otherwise, graphql-intuitive-request will not be able to infer some nullable fields correctly, and would just infer them as non-nullable ones.
 
 ## Overview
 
@@ -15,31 +15,33 @@ graphql-intuitive-request provides an **intuitive** and **TS-friendly** way to w
 ### Example
 
 ```typescript
-import { GraphQLIntuitiveClient } from 'graphql-intuitive-request';
+import { createClient } from 'graphql-intuitive-request';
 
-const client = new GraphQLIntuitiveClient('https://example.com/graphql', {
+const { query } = createClient('https://example.com/graphql', {
   headers: {
     Authorization: `Bearer <your_jwt_token>`,
   },
+}).registerTypes({
+  User: {
+    id: 'Int',
+    username: 'String',
+    email: 'String | Null',
+    role: 'Role',
+  },
+  Role: {
+    id: 'Int',
+    name: 'String',
+    permissions: 'Permission[]',
+  },
+  Permission: {
+    id: 'Int',
+    name: 'String',
+  },
+
+  Query: {
+    users: [{}, 'User[]'],
+  },
 });
-
-class User {
-  id: number;
-  username: string;
-  email: string | null;
-  role: Role;
-}
-
-class Role {
-  id: number;
-  name: string;
-  permissions: Permission[];
-}
-
-class Permission {
-  id: number;
-  name: string;
-}
 
 /*
  * The type of `res` is inferred as
@@ -52,7 +54,7 @@ class Permission {
  *   }
  * }>
  */
-const res = await client.query('users', {}, [User])({}, (user) => [
+const res = await query('users').select((user) => [
   user.id,
   user.username,
   user.role((role) => [
@@ -64,15 +66,24 @@ const res = await client.query('users', {}, [User])({}, (user) => [
 
 As you can see, the return type of the query is inferred as `Array<{ id: number; username: string; role: { name: string; permissions: Array<{ name: string }> } }>`, which is **exactly** what we want, not just a generic object like `User[]`!
 
-![Exact Type Inference with TypeScript](https://drive.google.com/uc?view=export&id=18joNiTtQSjnpGSBNkZSt18gZNnI59mOI)
+![Exact Type Inference with TypeScript](https://drive.google.com/uc?view=export&id=1mEG-I-yoghUJkrV2W1zZCrAB6WXnhx3G)
+
+The syntax is quite similar to that in TypeScript, but there are some differences:
+
+- There are only 5 basic types: `String`, `Int`, `Float`, `Boolean` and `ID`, just like in GraphQL.
+- `true` is replaced by `True` and `false` is replaced by `False`. They are actually interpreted as `Boolean` at runtime, but use them can help you take advantage of TypeScript's type system to ensure Typesafety.
+- `null` is replaced by `Null`, to keep consistent with the naming convention of other types.
+- Notice that compared with GraphQL, all types are non-null by default here, for the sake of convenience. If you want to indicate a nullable field, use something like 'Post | Null' is just fine.
+
+The correctness of these types represented as strings is verified at compile time. For example, `Sting` will be recognized as an invalid type, and TypeScript will throw an error at compile time. Such magic is supported by [ArkType](https://arktype.io/), a powerful TypeScript type parser and validator.
 
 So now when you access fields that are not requested in the query, TypeScript will throw an error at compile time!
 
-![TypeScript Compile Time Type Check](https://drive.google.com/uc?export=view&id=1DZXPAVoJO6qEf3JFdezuYykARRscArts)
+![TypeScript Compile Time Type Check](https://drive.google.com/uc?export=view&id=1mb4uUAqbicziNbyMSvhVmpzxe5OmqHRX)
 
 Also, now you get **intellisense** for the fields of the query, and you can **easily** add new fields to the query by making full use of TypeScript's type system! There's no need to use ESLint plugins to validate your GraphQL queries!
 
-![TypeScript Intellisense Support](https://drive.google.com/uc?export=view&id=1q-2QpysTfanh_NeLIc5PXmv7vI0O9zLI)
+![TypeScript Intellisense Support](https://drive.google.com/uc?export=view&id=11xmupYt-tb-VhgdC_O5Q5R6uO7nB8Iau)
 
 ### Features
 
@@ -84,162 +95,76 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 ## Installation
 
 ```shell
-$ npm install graphql graphql-request graphql-intuitive-request
+$ npm install graphql-intuitive-request
 ```
+
+...or any other package manager you like!
 
 ## Usage
 
-### Query a single entity or a list of entities
-
-You can query a single entity or a list of entities by passing a class or a single-element tuple of a class to indicate querying a single entity or a list of entities.
+`graphql-intuitive-client` is very smart and flexible, along with full TypeScript support, so you can use it in many ways. The following examples are just some common use cases.
 
 ```typescript
-// Query a single entity.
-const user = await client.query(
-  'currUser',
-  {},
-  User,
-)({}, (user) => [user.id, user.name]);
-
-// Query a list of entities.
-const users = await client.query('users', {}, [User])({}, (user) => [
-  user.id,
-  user.name,
-]);
-```
-
-### Query with variables
-
-You can pass variables to the query by passing an object indicating the type of each variable and an object containing the actual values of the variables.
-
-```typescript
-import { Int } from 'graphql-intuitive-request';
-
-const user = await client.query(
-  'user',
-  { id: Int },
-  User,
-)({ id: 1 }, (user) => [user.id, user.name]);
-```
-
-### Work with types
-
-graphql-intuitive-request provides support for basic GraphQL types, such as `String`, `Int`, `Float`, `Boolean`, and `ID`, and a `Nullable` function to indicate a nullable field.
-
-```typescript
-import { ID, Int, Float, Nullable } from 'graphql-intuitive-request';
-// In case of GraphQL String and Boolean types,
-// use JavaScript's built-in String and Boolean functions.
-
-const queryParams = {
-  id: Int,
-  description: Nullable(String),
-  permissionNames: [String],
-};
-
-const updatedRole = await client.mutation(
-  'updateRole',
-  queryParams,
-  Role,
-)(
-  {
-    id: 1,
-    description: null,
-    permissionNames: ['CREATE_USER'],
+const { query, mutation } = createClient(
+  'https://example.com/graphql',
+).registerTypes({
+  ...,
+  Query: {
+    user: [{ id: 'Int' }, 'User'],
+    users: [{}, 'User[]'],
+    ...
   },
-  (role) => [role.id, role.name],
-);
-```
-
-As is shown in the proceeding example, **mutations are also supported**.
-
-Contrary to GraphQL itself, graphql-intuitive-request see all values as non-null by default instead of null for the sake of convenience. So instead of providing a `NonNull` function, graphql-intuitive-request provides a `Nullable` function to indicate a nullable field.
-
-Another thing to note is that when you use a class to represent a type in variables, the name of the class must be the same as the name of the type in the GraphQL schema. For example, if you have a type named `User` in the GraphQL schema, you have to define a class named `User` in your code.
-
-Also, you can see that we use a tuple with only one element to indicate a list of entities. This is a convenient syntax provided by our package. You can also use multi-layered tuples to indicate a multi-layered list of entities like `[[User]]` or even `Nullable([Nullable([[Nullable(User)]])])`.
-
-**WARNING**: Currently, only variable types support complex multi-layer arrays of object type, and the return type only support complex multi-layer arrays of primitive types (string, number, boolean and GraphQLScalarType). For example, `Nullable([Nullable([[Nullable(String)]])])` is supported in return type, but `Nullable([Nullable([[Nullable(User)]])])` is not supported. Only `Nullable([Nullable(Object)])`, `[Nullable(Object)]`, `Nullable([Object])` and `[Object]` are supported in return type. As it is such a rare case when you need to return a complex multi-layer array of object type, and it is also quite difficult to query such a complex multi-layer array of object type even in a GraphQL query string, so we are not going to support it and there's no plan to support it in the future.
-
-Actually, the exported `Int`, `Float`, and `ID` are just `GraphQLInt`, `GraphQLFloat`, and `GraphQLID` from `graphql` package, so you can also import them from the `graphql` package. You can also use `GraphQLString` and `GraphQLBoolean` from the `graphql` package to replace the built-in `String` and `Boolean` functions.
-
-```typescript
-import {
-  GraphQLInt,
-  GraphQLFloat,
-  GraphQLID,
-  GraphQLString,
-  GraphQLBoolean,
-} from 'graphql';
-```
-
-All `GraphQLScalarType` objects from `graphql` package are also supported, so you can integrate graphql-intuitive-request with other GraphQL packages like `graphql-scalars`.
-
-```typescript
-import { GraphQLDateTime } from 'graphql-scalars';
-```
-
-Currently, however, graphql-intuitive-request does _not_ verify the validity of variable types, so even when you use a type like `GraphQLDateTime`, still no error will be thrown when the returned value is not a valid date-time string. Or when you use the type as a variable type, no error will be thrown when the variable is not a valid date-time string either. Actually, graphql-intuitive-request just extract the second generic type of `GraphQLScalarType` and use it as the type of the variable or the returned value.
-
-**WARNING:** Although graphql-intuitive-request provide support for types classes exported from `graphql` for compatibility, so you can write something like `[new GraphQLList(GraphQLString)]`, and graphql-intuitive-request will infer the type of the type as `string[][]`, but this is not recommended, because these classes are not well-typed by generics, and it is likely that we cannot correctly infer the exact type. Also, as you can see, we get `string[][]` instead of `((string | null)[] | null)[]`, that is because in such case, graphql-intuitive-request still follow the rule that all values are non-null by default, and actually all `GraphQLNonNull` objects are ignored if you use them in the type. Why we choose to do so is because all `GraphQLType` extends `GraphQLNonNull` in TS, so it is impossible to distinguish between `GraphQLNonNull` and `GraphQLType` in TS. So we choose to ignore all `GraphQLNonNull` objects, and we think it is a good choice because it is more convenient to use.
-
-### Easy encapsulation
-
-You may have noticed that it could be quite easy to encapsulate a GraphQL query or mutation for reuse in graphql-intuitive-request.
-
-For example, similar code like this may often be found in a project:
-
-```typescript
-import { Int } from 'graphql-intuitive-request';
-
-class UpdateRoleInput {
-  description: string | null;
-  permissionNames: string[];
-}
-
-const updatedRole = await client.mutation(
-  'updateRole',
-  {
-    id: Int,
-    input: UpdateRoleInput,
+  Mutation: {
+    login: [{ input: 'LoginInput' }, 'LoginOutput'],
+    logout: [{}, 'Boolean'],
+    removeUser: [{ id: 'Int' }, 'Boolean'],
+    ...
   },
-  Role,
-)(
-  {
-    id: 1,
-    input: {
-      description: null,
-      permissionNames: ['CREATE_USER'],
+});
+
+// The normal way to execute operations
+const user = await query('user') // user :: { id: number; name: string; }
+  .select((user) => [user.id, user.name])
+  .by({ id: 1 });
+// Abbreviated syntax when the count of non-optional variables is 1
+// Here, the only non-optional variable is `id`, so we can use `byId` instead of `byId`
+// In other cases, it may be `byUsername`, `byInput`, `byOptions`, etc.
+const user = await query('user') // user :: { id: number; name: string; }
+  .select((user) => [user.id, user.name])
+  .byId(1);
+// You can omit `select` if you want to select all fields (it would also select nested ones recursively)
+const user = await query('user').byId(1); // user :: User
+// The same is to `users`, you can see that it does not accept any variables, so there's no `by` method
+const users = await query('users').select((user) => [user.id, user.name]); // users :: Array<{ id: number; name: string; }>
+// Similarly, you can omit `select` if you want to select all fields
+const users = await query('users'); // users :: User[]
+// What about queries or mutations that do not return an object? As you can see, now there's no `select` method
+const isUserRemoved = await mutation('removeUser').byId(1); // isUserRemoved :: boolean
+const isLoggedOut = await mutation('logout'); // isLoggedOutSuccess :: boolean
+
+// Subscriptions are also supported, but only subscriptions using `graphql-ws` protocol are supported
+const { mutation, subscription } = createClient('https://example.com/graphql')
+  .withWebSocketClient({ url: 'ws://example.com/graphql' });
+  .registerTypes({
+    ...,
+    Subscription: {
+      commentAdded: [{ postId: 'Int' }, 'Comment'],
     },
-  },
-  (role) => [role.id, role.name],
-);
+  });
+
+const onCommentAddedSubscription = subscription('commentAdded')
+  .select((comment) => [comment.id, comment.content])
+  .byPostId(1);
+const unsubscribe = onCommentAddedSubscription.subscribe((comment) => {
+  console.log(comment.id, comment.content);
+});
+setTimeout(async () => {
+  await mutation('addComment').by({ postId: 1, content: 'Hello world!' });
+  unsubscribe();
+}, 1000);
 ```
 
-It is annoying to write the same operation name and indicate the type of variables every time. It is also not a good practice as it violates the DRY principle, so it is better to encapsulate the GraphQL query or mutation in a function.
-
-You can easily encapsulate the GraphQL query or mutation like this:
-
-```typescript
-const updateRole = client.mutation(
-  'updateRole',
-  { id: Int, input: UpdateRoleInput },
-  Role,
-);
-
-const updatedRole = await updateRole(
-  {
-    id: 1,
-    input: {
-      description: null,
-      permissionNames: ['CREATE_USER'],
-    },
-  },
-  (role) => [role.id, role.name],
-);
-```
-
-As is shown in the proceeding example, the only thing you need to do is just not calling the function generated by `client.query` or `client.mutation` immediately, but instead, just return the function generated by `client.query` or `client.mutation` and then call it later. It is quite useful to eliminate the duplication of the operation name and declarations of variables and return type.
+For more details, you can check [the relevant test file](./test/client.test.ts).
 
 ### [New] Support for subscriptions
 
@@ -250,49 +175,39 @@ Note that only subscriptions using `graphql-ws` protocol are supported. Due to t
 In order to connect to a `graphql-ws` subscription, you need to first use `client.withWebSocketClient` to attach a `graphql-ws` client to the graphql-intuitive-request client.
 
 ```typescript
-import { GraphQLIntuitiveClient, Int } from 'graphql-intuitive-request';
+import { createClient } from 'graphql-intuitive-request';
 
-const client = new GraphQLIntuitiveClient('https://example.com/graphql', {
+const { mutation, subscription } = createClient('https://example.com/graphql', {
   headers: {
     Authorization: `Bearer <your_jwt_token>`,
   },
-}).withWebSocketClient({
-  url: 'ws://example.com/graphql',
-  connectionParams: {
-    headers: {
-      Authorization: `Bearer <your_jwt_token>`,
+})
+  .withWebSocketClient({
+    url: 'ws://example.com/graphql',
+    connectionParams: {
+      headers: {
+        Authorization: `Bearer <your_jwt_token>`,
+      },
     },
-  },
-});
+  })
+  .registerTypes(...);
 ```
 
-The parameters of `client.withWebSocketClient` are the same as the parameters of `createClient` function from `graphql-ws` package. You can refer to the [documentation of `graphql-ws`](https://github.com/enisdenjo/graphql-ws/blob/master/docs/interfaces/client.ClientOptions.md#url) for more details.
+The parameters of `createClient().withWebSocketClient` are the same as the parameters of `createClient` function from `graphql-ws` package. You can refer to the [documentation of `graphql-ws`](https://github.com/enisdenjo/graphql-ws/blob/master/docs/interfaces/client.ClientOptions.md#url) for more details.
 
 Then you can use `client.subscription` to create a subscription.
 
 ```typescript
-const onCommentAddedSubscription = client.subscription(
-  'commentAdded',
-  {
-    postId: Int,
-  },
-  Comment,
-)({ postId: 1 }, (comment) => [comment.id, comment.content]);
+const onCommentAddedSubscription = subscription('commentAdded')
+  .select((comment) => [comment.id, comment.content])
+  .byPostId(1);
 
 const unsubscribe = onCommentAddedSubscription.subscribe((comment) => {
   console.log(comment.id, comment.content);
 });
 
 setTimeout(async () => {
-  const addComment = client.mutation(
-    'addComment',
-    {
-      postId: Int,
-      content: String,
-    },
-    Comment,
-  );
-  await addComment({ postId: 1, content: 'Hello world!' });
+  await mutation('addComment').by({ postId: 1, content: 'Hello world!' });
   unsubscribe();
 }, 1000);
 ```
@@ -318,10 +233,7 @@ It is annoying to repeat the same object selector every time when you want to se
 For example, similar code like this may often be found in a project:
 
 ```typescript
-const fetchUsers = client.query('users', {}, [User]);
-const fetchCurrUser = client.query('currUser', {}, User);
-
-const users = await fetchUsers({}, (user) => [
+const users = await query('users').select((user) => [
   user.id,
   user.name,
   user.roles((role) => [
@@ -331,7 +243,7 @@ const users = await fetchUsers({}, (user) => [
   ]),
 ]);
 
-const currUser = await fetchCurrUser({}, (user) => [
+const currentUser = await query('currentUser').select((user) => [
   user.id,
   user.name,
   user.roles((role) => [
@@ -345,21 +257,21 @@ const currUser = await fetchCurrUser({}, (user) => [
 Apparently, you don't want to repeat selecting the same fields of `Role` and `Permission` every time. You can easily eliminate the duplication of object selector like this:
 
 ```typescript
-import { createObjectSelectorOn } from 'graphql-intuitive-request';
+import { objectSelector } from 'graphql-intuitive-request';
 
-const coreRoleFields = createObjectSelectorOn(Role, (role) => [
+const coreRoleFields = objectSelector<Role>().select((role) => [
   role.name,
   role.description,
   role.permissions((permission) => [permission.name]),
 ]);
 
-const users = await fetchUsers({}, (user) => [
+const users = await query('users').select((user) => [
   user.id,
   user.name,
   user.roles(coreRoleFields),
 ]);
 
-const currUser = await fetchCurrUser({}, (user) => [
+const currentUser = await query('currentUser').select((user) => [
   user.id,
   user.name,
   user.roles(coreRoleFields),
@@ -371,28 +283,27 @@ const currUser = await fetchCurrUser({}, (user) => [
 It is possible to get the query string of a query or mutation using similar syntax as the one used to create a query or mutation.
 
 ```typescript
-import { createQueryStringFor, Int } from 'graphql-intuitive-request';
+import { queryString, mutationString, ... } from 'graphql-intuitive-request';
 
-const queryUserString = createQueryStringFor(
-  'query',
-  'user',
-  { id: Int },
-  User,
-  (user) => [user.id, user.name],
-);
+const queryUserString = queryString('user')
+  .variables({ id: 'ID!' })
+  .select<User>((user) => [user.id, user.name])
+  .build();
 ```
 
-Note that now you don't have to pass the actual values of variables to `createQueryStringFor`, also you can see that you don't need to call the function twice to get the query string, as it is often unnecessary to encapsulate the creation of a query string.
+Note that this time we use GraphQL types instead of the types used in `registerTypes` function. This is because we are unable to infer the types of the variables and the return type of the query or mutation, so we have to use GraphQL types instead.
+
+Also, we pass a generic parameter to the `select` method to indicate the return type of the query, mutation or subscription.
 
 ### Convert promise to query string and query request body
 
-It is also possible to convert a GraphQLIntuitiveClient's queries, mutations and subscriptions to query strings and query request bodies.
+It is also possible to convert a client's queries, mutations and subscriptions to query strings and query request bodies.
 
 For example, you can convert a query to query string like this:
 
 ```typescript
-const queryString = client
-  .query('users', {}, [User])({}, (user) => [user.id, user.name])
+const queryString = query('users')
+  .select((user) => [user.id, user.name])
   .toQueryString();
 ```
 
@@ -410,12 +321,9 @@ query users {
 You can also convert a query to request body like this:
 
 ```typescript
-const queryRequestBody = client
-  .query(
-    'user',
-    { id: Int },
-    User,
-  )({ id: 1 }, (user) => [user.id, user.name])
+const queryRequestBody = query('user')
+  .select((user) => [user.id, user.name])
+  .byId(1)
   .toRequestBody();
 ```
 
@@ -428,7 +336,7 @@ The request body will be an object like this:
 }
 ```
 
-You should remember that we provide this functionality just for debugging purpose, so you should not use it in production. If you only want to get the query string, you should use `createQueryStringFor` instead.
+You should remember that we provide this functionality just for debugging purpose, so you should not use it in production. If you only want to get the query string, you should use `queryString`, `mutationString` or `subscriptionString` instead.
 
 ### Work with graphql-request
 
@@ -437,10 +345,7 @@ graphql-intuitive-request is built on top of `graphql-request`, so you can use a
 You can get the `GraphQLClient` instance from graphql-intuitive-request by calling the `getGraphQLClient()` method on the `GraphQLIntuitiveClient` instance.
 
 ```typescript
-const graphQLIntuitiveClient = new GraphQLIntuitiveClient(
-  'http://example.com/graphql',
-);
-
+const client = createClient('http://example.com/graphql');
 const graphQLClient = graphQLIntuitiveClient.getRequestClient();
 ```
 
@@ -451,13 +356,10 @@ The subscription feature of graphql-intuitive-request is built on top of `graphq
 You can get the client provided by graphql-ws by calling the `getWSClient()` method on the `GraphQLIntuitiveClient` instance.
 
 ```typescript
-const graphQLIntuitiveClient = new GraphQLIntuitiveClient(
-  'http://example.com/graphql',
-).withWebSocketClient({
+const client = createClient('http://example.com/graphql').withWebSocketClient({
   url: 'ws://example.com/graphql',
 });
-
-const wsClient = graphQLIntuitiveClient.getWSClient();
+const wsClient = client.getWSClient();
 ```
 
 ## Future plans
@@ -466,21 +368,17 @@ Remember that these are just plans, and you cannot use them yet.
 
 ### Support for fragments
 
-Currently, you can define something like fragments by using the `createObjectSelectorOn` function.
+Currently, you can define something like fragments by using the `objectSelector` function.
 
 ```typescript
-import { createObjectSelectorOn } from 'graphql-intuitive-request';
+import { objectSelector } from 'graphql-intuitive-request';
 
-const characterFields = createObjectSelectorOn(Character, (character) => [
+const characterFields = objectSelector<Character>().select((character) => [
   character.name,
   character.appearsIn,
 ]);
 
-const hero = await client.query(
-  'hero',
-  { episode: Episode },
-  Character,
-)({ episode: 'JEDI' }, characterFields);
+const hero = await query('hero').select(characterFields).byEpisode('JEDI');
 ```
 
 However, you cannot define fragments like this:
@@ -504,21 +402,19 @@ query HeroAndFriends {
 In the future, you may be able to define fragments like this:
 
 ```typescript
-import { createFragmentOn } from 'graphql-intuitive-request';
+import { fragment } from 'graphql-intuitive-request';
 
-const characterFields = createFragmentOn(Character, (character) => [
+const characterFields = fragment<Character>().select((character) => [
   character.name,
   character.appearsIn,
 ]);
 
-const hero = await client.query(
-  'hero',
-  { episode: Episode },
-  Character,
-)({ episode: 'JEDI' }, (hero) => [
-  hero.$spread(characterFields),
-  hero.friends((friend) => [friend.$spread(characterFields)]),
-]);
+const hero = query('hero')
+  .select((hero) => [
+    hero.$spread(characterFields),
+    hero.friends((friend) => [friend.$spread(characterFields)]),
+  ])
+  .byEpisode('JEDI');
 ```
 
 For inline fragments like this:
@@ -543,12 +439,12 @@ You may be able to define them like this:
 ```typescript
 import { createFragmentOn } from 'graphql-intuitive-request';
 
-const dogFields = createFragmentOn(Dog, (dog) => [dog.name, dog.breed]);
-const catFields = createFragmentOn(Cat, (cat) => [cat.name, cat.color]);
+const dogFields = fragment<Dog>().select((dog) => [dog.name, dog.breed]);
+const catFields = fragment<Cat>().select((cat) => [cat.name, cat.color]);
 
-const animals = await client.query('animals', {}, [Animal])({}, (animal) => [
-  animal.$on(Dog, (dog) => [dog.$spread(dogFields)]),
-  animal.$on(Cat, (cat) => [cat.$spread(catFields)]),
+const animals = await query('animals').select((animal) => [
+  animal.$on('Dog', (dog) => [dog.$spread(dogFields)]),
+  animal.$on('Cat', (cat) => [cat.$spread(catFields)]),
 ]);
 ```
 
@@ -561,18 +457,16 @@ GraphQL unions are not supported yet, but they may be supported in the future.
 Some planning APIs may have look like this:
 
 ```typescript
-import { createUnion } from 'graphql-intuitive-request';
+import { union } from 'graphql-intuitive-request';
 
-const SearchResult = createUnion('SearchResult', [User, Post]);
+const SearchResult = union('SearchResult', 'User | Post');
 
-const searchResult = await client.query(
-  'search',
-  { query: String },
-  SearchResult,
-)({ query: 'John' }, (searchResult) => [
-  searchResult.$on(User, (user) => [user.id, user.name]),
-  searchResult.$on(Post, (post) => [post.id, post.title]),
-]);
+const searchResult = await query('search')
+  .select((searchResult) => [
+    searchResult.$on('User', (user) => [user.id, user.name]),
+    searchResult.$on('Post', (post) => [post.id, post.title]),
+  ])
+  .byQuery('John');
 ```
 
 ### Support for directives
@@ -596,17 +490,8 @@ query Hero($episode: Episode, $withHeight: Boolean!, $withFriends: Boolean!) {
 You may be able to write code like this:
 
 ```typescript
-const hero = await client.query(
-  'hero',
-  {
-    episode: Nullable(Episode),
-    withHeight: Boolean,
-    skipFriends: Boolean,
-  },
-  Character,
-)(
-  { episode: 'JEDI', withHeight: true, skipFriends: false },
-  (hero, variables) => [
+const hero = await query('hero')
+  .select((hero, variables) => [
     hero.name,
     hero.height.include$({
       if: variables.withHeight,
@@ -616,8 +501,8 @@ const hero = await client.query(
       .skip$({
         if: variables.skipFriends,
       }),
-  ],
-);
+  ])
+  .by({ episode: 'JEDI', withHeight: true, skipFriends: false });
 ```
 
 However, now typescript cannot determine whether `height` and `friends` are `undefined` or not by the type of `variables` (It is technically possible, but we have to add the `const` modifier to the `variables` parameter, and then you cannot pass a dynamic object to the `variables` parameter any more. However, in real-world applications, the variables are usually dynamic objects, so we cannot do this). So, you have to handle the case yourself.
@@ -625,7 +510,7 @@ However, now typescript cannot determine whether `height` and `friends` are `und
 Custom directives may also be supported.
 
 ```typescript
-const client = new GraphQLIntuitiveClient('http://example.com/graphql', {
+const { query } = createClient('http://example.com/graphql', {
   directives: {
     currency: {
       type: 'query',
@@ -637,7 +522,7 @@ const client = new GraphQLIntuitiveClient('http://example.com/graphql', {
   },
 });
 
-const books = await client.query('books', {}, [Book])({}, (book) => [
+const books = await query('books').select((book) => [
   book.title,
   book.price.currency$({
     currency: 'USD',

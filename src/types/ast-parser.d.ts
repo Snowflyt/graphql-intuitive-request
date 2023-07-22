@@ -1,4 +1,3 @@
-import type { Merge } from './common';
 import type {
   ArrayQueryNode,
   BooleanQueryNode,
@@ -47,8 +46,8 @@ export type ParseNodes<T extends readonly QueryNode[]> = T extends readonly [
   infer H extends QueryNode,
   ...infer TT extends readonly QueryNode[],
 ]
-  ? Merge<ParseNode<H>, ParseNodes<TT>>
-  : Record<never, never>;
+  ? ParseNode<H> & ParseNodes<TT>
+  : unknown;
 
 export type ParseNodesByType<
   T extends readonly QueryNode[],

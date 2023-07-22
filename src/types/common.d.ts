@@ -1,19 +1,3 @@
-export type ClassType<T> = new (...args: any[]) => T;
-
-export type Merge<A, B> = {
-  [K in keyof A | keyof B]: K extends keyof A & keyof B
-    ? A[K] | B[K]
-    : K extends keyof B
-    ? B[K]
-    : K extends keyof A
-    ? A[K]
-    : never;
-};
-
-export type DeepWriteable<T> = {
-  -readonly [P in keyof T]: DeepWriteable<T[P]>;
-};
-
 export interface QueryPromise<T> extends Promise<T> {
   toQueryString: () => string;
   toRequestBody: () => {
@@ -34,16 +18,6 @@ export interface SubscriptionResponse<T> {
     variables: Record<string, any>;
   };
 }
-
-export type ExtractTypeFromPrimitiveConstructor<
-  T extends StringConstructor | NumberConstructor | BooleanConstructor,
-> = T extends StringConstructor
-  ? string
-  : T extends NumberConstructor
-  ? number
-  : T extends BooleanConstructor
-  ? boolean
-  : never;
 
 /**
  * Judge whether a type is any.
@@ -95,8 +69,8 @@ type ExcludeNeverKeys<T extends Record<string, any>, KS> = KS extends [
   infer K extends `${any}`,
   ...infer Rest extends `${any}`[],
 ]
-  ? Merge<ExcludeNeverKey<T, K>, ExcludeNeverKeys<T, Rest>>
-  : Record<never, never>;
+  ? ExcludeNeverKey<T, K> & ExcludeNeverKeys<T, Rest>
+  : unknown;
 type ExcludeNeverKey<
   T extends Record<string, any>,
   K extends `${any}`,
@@ -122,6 +96,56 @@ type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (
 ) => void
   ? I
   : never;
+
+/**
+ * Remove optional fields from an object.
+ */
+export type RequiredFieldsOnly<T> = {
+  [K in keyof T as T[K] extends Required<T>[K] ? K : never]: T[K];
+};
+
+/**
+ * Get the length of an object.
+ */
+export type ObjectLength<T> = TuplifyLiteralStringUnion<keyof T>['length'];
+
+/**
+ * Get keys not ends with `?` from an object.
+ */
+export type RequiredFields<T extends Record<string, string>> = keyof {
+  [K in keyof T as K extends `${any}?` ? never : K]: void;
+};
+
+/**
+ * Get the count of keys not ends with `?` from an object.
+ */
+export type RequiredFieldsCount<T extends Record<string, string>> =
+  ObjectLength<{
+    [K in keyof T as K extends `${any}?` ? never : K]: void;
+  }>;
+
+/**
+ * Trim the end of a string.
+ */
+export type TrimEnd<
+  T extends string,
+  U extends string,
+> = T extends `${infer S}${U}` ? TrimEnd<S, U> : T;
+
+/**
+ * Get the value type of an object.
+ */
+export type ValueOf<T> = T[keyof T];
+
+/**
+ * Assign a default type for an optional type.
+ */
+export type WithDefault<T, D> = unknown extends T ? D : T;
+
+/**
+ * Force a type to be a specific type.
+ */
+export type Cast<T, U> = T extends U ? T : never;
 
 /**
  * Judge whether a type can be null.

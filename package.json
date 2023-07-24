@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "0.0.3-alpha.0",
+  "version": "0.0.3-alpha.1",
   "description": "Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutations and subscriptions",
   "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",
   "repository": {
@@ -12,14 +12,19 @@
   "type": "module",
   "exports": {
     ".": {
-      "require": "./cjs/index.js",
-      "import": "./esm/index.js"
+      "require": {
+        "require": "./cjs/index.js",
+        "types": "./types/index.d.ts"
+      },
+      "import": {
+        "import": "./esm/index.js",
+        "types": "./types/index.d.ts"
+      }
     },
     "./package.json": "./package.json"
   },
   "main": "./cjs/index.js",
   "module": "./esm/index.js",
-  "types": "./types/index.d.ts",
   "scripts": {
     "build": "npm run clean && cpy ./src/types/**/*.d.ts ./build/types/ && cpy ./package.json ./build/ && cpy ./README.md ./build/ && cpy ./LICENSE ./build/ && tsc -p tsconfig.esm.json && tsc -p tsconfig.cjs.json && prettier --write ./build/**/*.js && replace-in-file /\\.\\/types\\//g ./ ./build/**/*.d.ts --isRegex && eslint --fix ./build/esm/**/*.js && eslint --fix ./build/**/*.d.ts",
     "clean": "rimraf build",

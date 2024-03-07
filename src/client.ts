@@ -8,16 +8,17 @@ import {
 import { buildQueryString } from './query-builder';
 import { createAllSelector, parseSelector } from './selector';
 import { createTypeParser } from './type-parser';
-import { ParseNodes } from './types/ast-parser';
-import { capitalize, omit, pick, requiredFieldsCount } from './utils';
+import { capitalize, omit, pick, requiredKeysCount } from './utils';
 
 import type { Types } from './types';
 import type { ObjectSelector } from './types/ast-builder';
+import type { ParseNodes } from './types/ast-parser';
 import type {
   Cast,
   QueryPromise,
   RequiredFields,
   RequiredFieldsCount,
+  StringLiteral,
   SubscriptionResponse,
   TrimEnd,
   TuplifyLiteralStringUnion,
@@ -30,7 +31,7 @@ import type {
   VariablesOf,
   WrapByType,
 } from './types/graphql-types';
-import type { QueryNode } from './types/query-nodes';
+import type { QueryNode } from './types/query-node';
 
 type OperationResponse<
   TMethod extends 'query' | 'mutation' | 'subscription',
@@ -39,38 +40,32 @@ type OperationResponse<
 
 type ByMixin<
   TVariables extends Record<string, string>,
-  TTypes,
+  $,
   R,
 > = RequiredFieldsCount<TVariables> extends 0
-  ? ByMixinHelper<
-      TVariables,
-      TuplifyLiteralStringUnion<keyof TVariables>,
-      TTypes,
-      R
-    >
+  ? ByMixinHelper<TVariables, TuplifyLiteralStringUnion<keyof TVariables>, $, R>
   : RequiredFieldsCount<TVariables> extends 1
-  ? ByMixinHelper<TVariables, [RequiredFields<TVariables>], TTypes, R>
+  ? ByMixinHelper<TVariables, [RequiredFields<TVariables>], $, R>
   : Record<string, never>;
-type ByMixinHelper<
-  TVariables,
-  TKeys,
-  TTypes,
-  R,
-  Result = unknown,
-> = TKeys extends readonly [infer TKey, ...infer TRest extends any[]]
+type ByMixinHelper<TVariables, TKeys, $, R, Result = unknown> = TKeys extends readonly [
+  infer TKey,
+  ...infer TRest extends any[],
+]
   ? ByMixinHelper<
       TVariables,
       TRest,
-      TTypes,
+      $,
       R,
       Result &
         Record<
           `by${Capitalize<TrimEnd<Cast<TKey, string>, '?'>>}`,
           (
-            arg: VariablesOf<TVariables, TTypes>[Cast<
-              TKey,
-              keyof VariablesOf<TVariables, TTypes>
-            >],
+            arg: NonNullable<
+              VariablesOf<TVariables, $>[Cast<
+                TrimEnd<Cast<TKey, string>, '?'>,
+                keyof VariablesOf<TVariables, $>
+              >]
+            >,
           ) => R
         >
     >
@@ -93,9 +88,9 @@ type OperationFunction<
             selector: ObjectSelector<R, TQueryNodes>,
           ) => OperationResponse<
             TMethod,
-            WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+            WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
           >;
-        } & OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+        } & OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
       : {
           select: <const TQueryNodes extends readonly QueryNode[]>(
             selector: ObjectSelector<R, TQueryNodes>,
@@ -104,46 +99,43 @@ type OperationFunction<
               variables: VariablesOf<TOperations[ON][0], TTypes>,
             ) => OperationResponse<
               TMethod,
-              WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+              WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
             >;
           } & ByMixin<
             TOperations[ON][0],
             TTypes,
-            OperationResponse<
-              TMethod,
-              WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
-            >
+            OperationResponse<TMethod, WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>>
           > &
             (RequiredFieldsCount<TOperations[ON][0]> extends 0
               ? OperationResponse<
                   TMethod,
-                  WrapByType<ParseNodes<TQueryNodes>, Cast<T, `${any}`>>
+                  WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
                 >
               : unknown);
           by: (
             variables: VariablesOf<TOperations[ON][0], TTypes>,
-          ) => OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>;
+          ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
         } & ByMixin<
           TOperations[ON][0],
           TTypes,
-          OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+          OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
         > &
           (RequiredFieldsCount<TOperations[ON][0]> extends 0
-            ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+            ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
             : unknown)
     : TOperations[typeof operationName][0] extends Record<string, never>
-    ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+    ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
     : {
         by: (
           variables: VariablesOf<TOperations[typeof operationName][0], TTypes>,
-        ) => OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>;
+        ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
       } & ByMixin<
         TOperations[ON][0],
         TTypes,
-        OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+        OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
       > &
         (RequiredFieldsCount<TOperations[ON][0]> extends 0
-          ? OperationResponse<TMethod, WrapByType<R, Cast<T, `${any}`>>>
+          ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
           : unknown)
   : never;
 
@@ -201,18 +193,13 @@ const _createEndpoint = <
 ): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
   const cancelledPromises = new WeakSet<Promise<any>>();
 
-  const types = omit(
-    rawTypes,
-    'Query',
-    'Mutation',
-    'Subscription',
-  ) as TypeCollection;
+  const $ = omit(rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
 
   const queries = (rawTypes.Query ?? {}) as FunctionCollection;
   const mutations = (rawTypes.Mutation ?? {}) as FunctionCollection;
   const subscriptions = (rawTypes.Subscription ?? {}) as FunctionCollection;
 
-  const typeParser = createTypeParser(types);
+  const typeParser = createTypeParser($);
   const compileOperations = (
     operations: FunctionCollection,
   ): Record<
@@ -229,18 +216,15 @@ const _createEndpoint = <
         ...prev,
         [operationName]: {
           variableTypes: Object.entries(variablesType).reduce(
-            (prev, [variableName, variableType]) => {
-              const parsedType = typeParser.parse(variableType);
-              return {
-                ...prev,
-                [variableName.replace(/\?$/, '')]: variableName.endsWith('?')
-                  ? typeParser.nullable(parsedType)
-                  : parsedType,
-              };
-            },
+            (prev, [variableName, variableType]) => ({
+              ...prev,
+              [variableName.replace(/\?$/, '')]: variableName.endsWith('?')
+                ? typeParser.nullable(variableType)
+                : variableType,
+            }),
             {},
           ),
-          returnType: typeParser.parse(returnType),
+          returnType,
           hasVariables: Object.keys(variablesType).length > 0,
           isReturnTypeSimple: typeParser.isSimpleType(returnType),
         },
@@ -252,23 +236,14 @@ const _createEndpoint = <
   const preCompiledMutations = compileOperations(mutations);
   const preCompiledSubscriptions = compileOperations(subscriptions);
 
-  const buildOperationResponse = <
-    TMethod extends 'query' | 'mutation' | 'subscription',
-  >(
+  const buildOperationResponse = <TMethod extends 'query' | 'mutation' | 'subscription'>(
     method: TMethod,
     operationName: string,
     variableTypes: Record<string, string>,
     variables: Record<string, any>,
     ast: readonly QueryNode[],
-  ): TMethod extends 'subscription'
-    ? SubscriptionResponse<any>
-    : QueryPromise<any> => {
-    const queryString = buildQueryString(
-      method,
-      operationName,
-      variableTypes,
-      ast,
-    );
+  ): TMethod extends 'subscription' ? SubscriptionResponse<any> : QueryPromise<any> => {
+    const queryString = buildQueryString(method, operationName, variableTypes, ast);
 
     if (method === 'subscription')
       return {
@@ -315,8 +290,7 @@ const _createEndpoint = <
   };
 
   const buildOperationFunction =
-    (method: 'query' | 'mutation' | 'subscription') =>
-    (operationName: string) => {
+    (method: 'query' | 'mutation' | 'subscription') => (operationName: string) => {
       const rawOperation =
         method === 'query'
           ? queries[operationName]
@@ -334,17 +308,17 @@ const _createEndpoint = <
       if (!operation.hasVariables) {
         const ast = operation.isReturnTypeSimple
           ? []
-          : parseSelector(createAllSelector(operation.returnType, types));
+          : parseSelector(createAllSelector(operation.returnType, $));
         result = buildOperationResponse(method, operationName, {}, {}, ast);
 
         if (operation.isReturnTypeSimple) return result;
       }
 
       if (operation.hasVariables) {
-        if (requiredFieldsCount(rawOperation[0]) === 0) {
+        if (requiredKeysCount(rawOperation[0]) === 0) {
           const ast = operation.isReturnTypeSimple
             ? []
-            : parseSelector(createAllSelector(operation.returnType, types));
+            : parseSelector(createAllSelector(operation.returnType, $));
           result = buildOperationResponse(method, operationName, {}, {}, ast);
         }
 
@@ -352,7 +326,7 @@ const _createEndpoint = <
           cancelledPromises.add(result);
           const ast = operation.isReturnTypeSimple
             ? []
-            : parseSelector(createAllSelector(operation.returnType, types));
+            : parseSelector(createAllSelector(operation.returnType, $));
           return buildOperationResponse(
             method,
             operationName,
@@ -362,12 +336,12 @@ const _createEndpoint = <
           );
         };
 
-        if (requiredFieldsCount(rawOperation[0]) === 1) {
+        if (requiredKeysCount(rawOperation[0]) === 1) {
           const variableName = Object.keys(operation.variableTypes)[0];
           result[`by${capitalize(variableName)}`] = (arg: any) =>
             result.by({ [variableName]: arg });
         }
-        if (requiredFieldsCount(rawOperation[0]) === 0) {
+        if (requiredKeysCount(rawOperation[0]) === 0) {
           for (const variableName of Object.keys(operation.variableTypes)) {
             result[`by${capitalize(variableName)}`] = (arg: any) =>
               result.by({ [variableName]: arg });
@@ -384,7 +358,7 @@ const _createEndpoint = <
           return buildOperationResponse(method, operationName, {}, {}, ast);
         }
 
-        if (requiredFieldsCount(rawOperation[0]) === 0) {
+        if (requiredKeysCount(rawOperation[0]) === 0) {
           cancelledPromises.add(result);
           const by = result.by;
           const select = result.select;
@@ -408,15 +382,13 @@ const _createEndpoint = <
           },
         };
 
-        if (requiredFieldsCount(rawOperation[0]) === 1) {
+        if (requiredKeysCount(rawOperation[0]) === 1) {
           const variableName = Object.keys(operation.variableTypes)[0];
-          res[`by${capitalize(variableName)}`] = (arg: any) =>
-            res.by({ [variableName]: arg });
+          res[`by${capitalize(variableName)}`] = (arg: any) => res.by({ [variableName]: arg });
         }
-        if (requiredFieldsCount(rawOperation[0]) === 0) {
+        if (requiredKeysCount(rawOperation[0]) === 0) {
           for (const variableName of Object.keys(operation.variableTypes)) {
-            res[`by${capitalize(variableName)}`] = (arg: any) =>
-              res.by({ [variableName]: arg });
+            res[`by${capitalize(variableName)}`] = (arg: any) => res.by({ [variableName]: arg });
           }
         }
 
@@ -439,12 +411,9 @@ const _createEndpoint = <
 export type ClientOptions = RequestClient['requestConfig'];
 export type WSOptions = WSClientOptions;
 
-export const createClient = (
-  url: string,
-  options?: RequestClient['requestConfig'],
-) => ({
+export const createClient = (url: string, options?: RequestClient['requestConfig']) => ({
   withWebSocketClient: (wsOptions: WSOptions) => ({
-    registerTypes: <
+    withSchema: <
       T extends
         | {
             Query?: FunctionCollection;
@@ -473,11 +442,11 @@ export const createClient = (
     ): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
       const requestClient = new RequestClient(url, options);
       const wsClient = createWSClient(wsOptions);
-      return _createEndpoint(requestClient, wsClient, types);
+      return _createEndpoint(requestClient, wsClient, types) as never;
     },
   }),
 
-  registerTypes: <
+  withSchema: <
     T extends
       | {
           Query?: FunctionCollection;
@@ -501,6 +470,6 @@ export const createClient = (
     types: Types<T>,
   ): Endpoint<TTypes, TQueries, TMutations> => {
     const requestClient = new RequestClient(url, options);
-    return _createEndpoint(requestClient, null as any, types);
+    return _createEndpoint(requestClient, null as never, types) as never;
   },
 });

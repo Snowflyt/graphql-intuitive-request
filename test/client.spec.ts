@@ -12,61 +12,61 @@ jest.mock('graphql-request', () => ({
 }));
 
 describe('client', () => {
-  const { mutation, query } = createClient('').registerTypes({
+  const { mutation, query } = createClient('').withSchema({
     User: {
-      id: 'Int',
-      username: 'String',
-      email: 'String | Null',
-      posts: 'Post[]',
+      id: 'Int!',
+      username: 'String!',
+      email: 'String',
+      posts: '[Post!]!',
     },
     Post: {
-      id: 'Int',
-      title: 'String',
-      content: 'String',
-      authorId: 'Int',
+      id: 'Int!',
+      title: 'String!',
+      content: 'String!',
+      authorId: 'Int!',
     },
     CreateUserInput: {
-      username: 'String',
-      password: 'String',
+      username: 'String!',
+      password: 'String!',
     },
     UpdateUserInput: {
-      'username?': 'String',
-      'password?': 'String',
+      'username?': 'String!',
+      'password?': 'String!',
     },
     CreatePostInput: {
-      title: 'String',
-      content: 'String',
-      authorId: 'Int',
+      title: 'String!',
+      content: 'String!',
+      authorId: 'Int!',
     },
     UpdatePostInput: {
-      'title?': 'String',
-      'content?': 'String',
+      'title?': 'String!',
+      'content?': 'String!',
     },
     LoginInput: {
-      username: 'String',
-      password: 'String',
+      username: 'String!',
+      password: 'String!',
     },
     LoginOutput: {
-      token: 'String',
+      token: 'String!',
     },
     Query: {
-      userExists: [{ username: 'String' }, 'Boolean'],
-      user: [{ id: 'Int' }, 'User'],
-      users: [{}, 'User[]'],
-      post: [{ id: 'Int' }, 'Post'],
-      posts: [{}, 'Post[]'],
+      userExists: [{ username: 'String!' }, 'Boolean!'],
+      user: [{ id: 'Int!' }, 'User'],
+      users: [{}, '[User!]!'],
+      post: [{ id: 'Int!' }, 'Post'],
+      posts: [{}, '[Post!]!'],
     },
     Mutation: {
-      login: [{ input: 'LoginInput' }, 'LoginOutput'],
-      logout: [{}, 'Boolean'],
-      createUser: [{ input: 'CreateUserInput' }, 'User'],
-      updateUser: [{ id: 'Int', input: 'UpdateUserInput' }, 'User'],
-      removeUser: [{ id: 'Int' }, 'User'],
-      createPost: [{ input: 'CreatePostInput' }, 'Post'],
-      updatePost: [{ id: 'Int', input: 'UpdatePostInput' }, 'Post'],
-      removePost: [{ id: 'Int' }, 'Post'],
+      login: [{ input: 'LoginInput!' }, 'LoginOutput!'],
+      logout: [{}, 'Boolean!'],
+      createUser: [{ input: 'CreateUserInput!' }, 'User!'],
+      updateUser: [{ id: 'Int!', input: 'UpdateUserInput!' }, 'User!'],
+      removeUser: [{ id: 'Int!' }, 'User!'],
+      createPost: [{ input: 'CreatePostInput!' }, 'Post!'],
+      updatePost: [{ id: 'Int!', input: 'UpdatePostInput!' }, 'Post!'],
+      removePost: [{ id: 'Int!' }, 'Post!'],
     },
-    Subscription: { postAdded: [{}, 'Post'] },
+    Subscription: { postAdded: [{}, 'Post!'] },
   });
 
   afterAll(() => {
@@ -82,8 +82,7 @@ describe('client', () => {
     const expectedVariables = { username: 'admin' };
 
     const promise1 = query('userExists').by({ username: 'admin' });
-    const { query: queryString1, variables: variables1 } =
-      promise1.toRequestBody();
+    const { query: queryString1, variables: variables1 } = promise1.toRequestBody();
     expect(queryString1).toBe(trimIndent(expectedQueryString));
     expect(variables1).toEqual(expectedVariables);
     // Make sure the request is only sent once
@@ -134,11 +133,7 @@ describe('client', () => {
     const expectedVariables = { id: 1 };
 
     const promise1 = query('user')
-      .select((user) => [
-        user.username,
-        user.email,
-        user.posts((post) => [post.title]),
-      ])
+      .select((user) => [user.username, user.email, user.posts((post) => [post.title])])
       .by({ id: 1 });
     const { query: queryString1, variables: vars1 } = promise1.toRequestBody();
     expect(queryString1).toBe(trimIndent(expectedQueryString1));
@@ -150,11 +145,7 @@ describe('client', () => {
     request.mockClear();
 
     const promise2 = query('user')
-      .select((user) => [
-        user.username,
-        user.email,
-        user.posts((post) => [post.title]),
-      ])
+      .select((user) => [user.username, user.email, user.posts((post) => [post.title])])
       // Abbreviated syntax when there is only one variable
       .byId(1);
     const { query: queryString2, variables: vars2 } = promise2.toRequestBody();

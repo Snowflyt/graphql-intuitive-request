@@ -1,125 +1,124 @@
 import { createClient } from '../src/client';
+import { enumOf } from '../src/types';
 import { trimIndent } from '../src/utils';
 
 describe('client', () => {
-  const { mutation, query } = createClient(
-    'https://graphqlzero.almansi.me/api',
-  ).registerTypes({
+  const { mutation, query } = createClient('https://graphqlzero.almansi.me/api').withSchema({
     PageLimitPair: {
-      page: 'Int | Null',
-      limit: 'Int | Null',
+      page: 'Int',
+      limit: 'Int',
     },
     PaginationLinks: {
-      first: 'PageLimitPair | Null',
-      prev: 'PageLimitPair | Null',
-      next: 'PageLimitPair | Null',
-      last: 'PageLimitPair | Null',
+      first: 'PageLimitPair',
+      prev: 'PageLimitPair',
+      next: 'PageLimitPair',
+      last: 'PageLimitPair',
     },
     PageMetaData: {
-      totalCount: 'Int | Null',
+      totalCount: 'Int',
     },
 
-    OperatorKindEnum: '"GTE" | "LTE" | "NE" | "LIKE"',
+    OperatorKindEnum: enumOf('GTE', 'LTE', 'NE', 'LIKE'),
     PaginateOptions: {
-      'page?': 'Int',
-      'limit?': 'Int',
+      'page?': 'Int!',
+      'limit?': 'Int!',
     },
     SliceOptions: {
-      'start?': 'Int',
-      'end?': 'Int',
-      'limit?': 'Int',
+      'start?': 'Int!',
+      'end?': 'Int!',
+      'limit?': 'Int!',
     },
     SortOptions: {
-      'field?': 'String',
-      'order?': 'String',
+      'field?': 'String!',
+      'order?': 'String!',
     },
     OperatorOptions: {
-      'kind?': 'OperatorKindEnum',
-      'field?': 'String',
-      'value?': 'String',
+      'kind?': 'OperatorKindEnum!',
+      'field?': 'String!',
+      'value?': 'String!',
     },
     SearchOptions: {
-      'q?': 'String',
+      'q?': 'String!',
     },
     PageQueryOptions: {
-      'paginate?': 'PaginateOptions',
-      'slice?': 'SliceOptions',
-      'sort?': 'SortOptions',
-      'operator?': 'OperatorOptions',
-      'search?': 'SearchOptions',
+      'paginate?': 'PaginateOptions!',
+      'slice?': 'SliceOptions!',
+      'sort?': 'SortOptions!',
+      'operator?': 'OperatorOptions!',
+      'search?': 'SearchOptions!',
     },
 
     Geo: {
-      lat: 'Float | Null',
-      lng: 'Float | Null',
+      lat: 'Float',
+      lng: 'Float',
     },
     Address: {
-      street: 'String | Null',
-      suite: 'String | Null',
-      city: 'String | Null',
-      zipcode: 'String | Null',
-      geo: 'Geo | Null',
+      street: 'String',
+      suite: 'String',
+      city: 'String',
+      zipcode: 'String',
+      geo: 'Geo',
     },
     Company: {
-      name: 'String | Null',
-      catchPhrase: 'String | Null',
-      bs: 'String | Null',
+      name: 'String',
+      catchPhrase: 'String',
+      bs: 'String',
     },
     Comment: {
-      id: 'ID | Null',
-      name: 'String | Null',
-      email: 'String | Null',
-      body: 'String | Null',
+      id: 'ID',
+      name: 'String',
+      email: 'String',
+      body: 'String',
     },
     CommentsPage: {
-      data: 'Comment[] | Null',
-      links: 'PaginationLinks | Null',
-      meta: 'PageMetaData | Null',
+      data: '[Comment!]',
+      links: 'PaginationLinks',
+      meta: 'PageMetaData',
     },
     Post: {
-      id: 'ID | Null',
-      title: 'String | Null',
-      body: 'String | Null',
-      comments: 'CommentsPage | Null',
+      id: 'ID',
+      title: 'String',
+      body: 'String',
+      comments: 'CommentsPage',
     },
     PostsPage: {
-      data: 'Post[] | Null',
-      links: 'PaginationLinks | Null',
-      meta: 'PageMetaData | Null',
+      data: '[Post!]',
+      links: 'PaginationLinks',
+      meta: 'PageMetaData',
     },
     User: {
-      id: 'ID | Null',
-      name: 'String | Null',
-      username: 'String | Null',
-      email: 'String | Null',
-      address: 'Address | Null',
-      phone: 'String | Null',
-      website: 'String | Null',
-      company: 'Company | Null',
-      posts: 'PostsPage | Null',
+      id: 'ID',
+      name: 'String',
+      username: 'String',
+      email: 'String',
+      address: 'Address',
+      phone: 'String',
+      website: 'String',
+      company: 'Company',
+      posts: 'PostsPage',
     },
 
     CreatePostInput: {
-      title: 'String',
-      body: 'String',
+      title: 'String!',
+      body: 'String!',
     },
     UpdatePostInput: {
-      'title?': 'String',
-      'body?': 'String',
+      'title?': 'String!',
+      'body?': 'String!',
     },
 
     Query: {
-      _: [{}, 'Int | Null'],
-      post: [{ id: 'ID' }, 'Post | Null'],
-      user: [{ id: 'ID' }, 'User | Null'],
-      posts: [{ 'options?': 'PageQueryOptions' }, 'PostsPage | Null'],
+      _: [{}, 'Int'],
+      post: [{ id: 'ID!' }, 'Post'],
+      user: [{ id: 'ID!' }, 'User'],
+      posts: [{ 'options?': 'PageQueryOptions!' }, 'PostsPage'],
     },
 
     Mutation: {
-      _: [{}, 'Int | Null'],
-      createPost: [{ input: 'CreatePostInput' }, 'Post | Null'],
-      updatePost: [{ id: 'ID', input: 'UpdatePostInput' }, 'Post | Null'],
-      deletePost: [{ id: 'ID' }, 'Boolean | Null'],
+      _: [{}, 'Int'],
+      createPost: [{ input: 'CreatePostInput!' }, 'Post'],
+      updatePost: [{ id: 'ID!', input: 'UpdatePostInput!' }, 'Post'],
+      deletePost: [{ id: 'ID!' }, 'Boolean'],
     },
   });
 
@@ -134,8 +133,7 @@ describe('client', () => {
       .byId('1');
     expect(post).toEqual({
       id: '1',
-      title:
-        'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+      title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
       body: trimIndent(`
         quia et suscipit
         suscipit recusandae consequuntur expedita et cum
@@ -169,17 +167,14 @@ describe('client', () => {
 
   it("should get a user's posts", async () => {
     const user = await query('user')
-      .select((user) => [
-        user.posts((posts) => [posts.data((post) => [post.id, post.title])]),
-      ])
+      .select((user) => [user.posts((posts) => [posts.data((post) => [post.id, post.title])])])
       .byId('1');
     expect(user).toEqual({
       posts: {
         data: [
           {
             id: '1',
-            title:
-              'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+            title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
           },
           {
             id: '2',
@@ -187,8 +182,7 @@ describe('client', () => {
           },
           {
             id: '3',
-            title:
-              'ea molestias quasi exercitationem repellat qui ipsa sit aut',
+            title: 'ea molestias quasi exercitationem repellat qui ipsa sit aut',
           },
           {
             id: '4',
@@ -234,8 +228,7 @@ describe('client', () => {
       data: [
         {
           id: '1',
-          title:
-            'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
+          title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
         },
         {
           id: '2',

@@ -1,3 +1,4 @@
+import type { IsNever, Merge } from './common';
 import type {
   ArrayQueryNode,
   BooleanQueryNode,
@@ -6,14 +7,16 @@ import type {
   ObjectQueryNode,
   QueryNode,
   StringQueryNode,
-} from './query-nodes';
+} from './query-node';
 
 type GetArrayQueryNodeType<T> = T extends NullableQueryNode<infer N>
   ? GetArrayQueryNodeType<N> | null
   : T extends ArrayQueryNode<any, infer C>
   ? Array<GetArrayQueryNodeType<C>>
-  : T extends StringQueryNode
-  ? string
+  : T extends StringQueryNode<any, infer AV>
+  ? IsNever<AV> extends true
+    ? string
+    : AV
   : T extends NumberQueryNode
   ? number
   : T extends BooleanQueryNode
@@ -22,8 +25,10 @@ type GetArrayQueryNodeType<T> = T extends NullableQueryNode<infer N>
 
 type GetQueryNodeType<T> = T extends NullableQueryNode<infer N>
   ? GetQueryNodeType<N> | null
-  : T extends StringQueryNode
-  ? string
+  : T extends StringQueryNode<any, infer AV>
+  ? IsNever<AV> extends true
+    ? string
+    : AV
   : T extends NumberQueryNode
   ? number
   : T extends BooleanQueryNode
@@ -37,16 +42,14 @@ type GetQueryNodeType<T> = T extends NullableQueryNode<infer N>
   : never;
 
 type ParseNode<T> = T extends QueryNode
-  ? {
-      [K in T['key']]: GetQueryNodeType<T>;
-    }
+  ? { [K in T['key']]: GetQueryNodeType<T> }
   : Record<never, never>;
 
 export type ParseNodes<T extends readonly QueryNode[]> = T extends readonly [
   infer H extends QueryNode,
   ...infer TT extends readonly QueryNode[],
 ]
-  ? ParseNode<H> & ParseNodes<TT>
+  ? Merge<ParseNode<H>, ParseNodes<TT>>
   : unknown;
 
 export type ParseNodesByType<

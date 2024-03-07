@@ -4,9 +4,10 @@ export type QueryNode =
   | ObjectQueryNode
   | NullableQueryNode<PrimitiveQueryNode | ArrayQueryNode | ObjectQueryNode>;
 
-export interface StringQueryNode<K extends string = any> {
+export interface StringQueryNode<K extends string = any, TAvailableValues extends string = string> {
   key: K;
   children: null;
+  availableValues: TAvailableValues;
   __type: 'string';
 }
 
@@ -22,24 +23,15 @@ export interface BooleanQueryNode<K extends string = any> {
   __type: 'boolean';
 }
 
-export type PrimitiveQueryNode =
-  | StringQueryNode
-  | NumberQueryNode
-  | BooleanQueryNode;
+export type PrimitiveQueryNode = StringQueryNode | NumberQueryNode | BooleanQueryNode;
 
-export interface ArrayQueryNode<
-  K extends string = any,
-  C extends QueryNode = any,
-> {
+export interface ArrayQueryNode<K extends string = any, C extends QueryNode = any> {
   key: K;
   children: C;
   __type: 'array';
 }
 
-export interface ObjectQueryNode<
-  K extends string = any,
-  C extends readonly QueryNode[] = any,
-> {
+export interface ObjectQueryNode<K extends string = any, C extends readonly QueryNode[] = any> {
   key: K;
   children: C;
   __type: 'object';

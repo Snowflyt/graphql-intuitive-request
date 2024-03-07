@@ -1,37 +1,23 @@
-import { scope } from 'arktype';
-
-import type { ValueOf } from './types/common';
+import type { StringLiteral, ValueOf } from './types/common';
 import type {
+  BaseEnvironment,
   FunctionCollection,
+  GraphQLEnum,
   TypeCollection,
-  TypesOptions,
 } from './types/graphql-types';
+import type { Validate } from './types/validator';
 
-export const graphQLBaseTypes = ['ID', 'Int', 'Float', 'String', 'Boolean'];
+export const GRAPHQL_BASE_TYPES = ['ID', 'Int', 'Float', 'String', 'Boolean'] as const;
+
 export const simpleVariantOf = (types: string[]) =>
   types.flatMap((type) => [
     type,
     `${type}!`,
     `[${type}]`,
+    `[${type}]!`,
     `[${type}!]`,
     `[${type}!]!`,
   ]);
-
-const graphQLDefaults = scope({
-  True: 'true',
-  False: 'false',
-  Null: 'null',
-
-  ID: 'string | "ID"',
-  Int: 'number | 0',
-  Float: 'number | 1',
-  String: 'string | "String"',
-  Boolean: 'boolean',
-}).compile();
-export const typesOptions: TypesOptions = {
-  standard: false,
-  includes: [graphQLDefaults],
-};
 
 export type Types<
   T extends
@@ -42,9 +28,10 @@ export type Types<
       }
     | TypeCollection,
 > = ValueOf<Omit<T, 'Query' | 'Mutation' | 'Subscription'>> extends
-  | Record<string, `${any}`>
-  | `${any}`
-  ? Parameters<typeof scope<T, TypesOptions>>[0]
+  | Record<string, StringLiteral>
+  | StringLiteral
+  | GraphQLEnum
+  ? Validate<T, BaseEnvironment>
   : never;
 
 export const types = <
@@ -59,9 +46,19 @@ export const types = <
   types: Types<T>,
 ) => types;
 
-export const getTypesEnums = <T extends Types<T>>(types: T): string[] =>
-  Object.keys(
-    Object.entries(types).filter(
-      ([, type]) => typeof type === 'string' && type.includes('|'),
-    ),
-  );
+export const enumOf = <S extends StringLiteral>(...values: S[]): GraphQLEnum<S> => ({
+  __graphQLType: 'enum',
+  values,
+});
+
+export const isGraphQLEnum = (value: unknown): value is GraphQLEnum =>
+  typeof value === 'object' &&
+  value !== null &&
+  '__graphQLType' in value &&
+  value.__graphQLType === 'enum' &&
+  'values' in value &&
+  Array.isArray(value.values) &&
+  value.values.every((v) => typeof v === 'string');
+
+export const getTypesEnums = <T extends Types<T>>($: T): string[] =>
+  Object.keys(Object.entries($).filter(isGraphQLEnum));

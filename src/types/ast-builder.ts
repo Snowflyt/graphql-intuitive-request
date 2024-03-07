@@ -1,4 +1,4 @@
-import {
+import type {
   CanBeNull,
   CanBeUndefined,
   ExcludeNeverValues,
@@ -7,7 +7,6 @@ import {
   IsNever,
   IsUnknown,
 } from './common';
-
 import type {
   ArrayQueryNode,
   BooleanQueryNode,
@@ -16,7 +15,7 @@ import type {
   ObjectQueryNode,
   QueryNode,
   StringQueryNode,
-} from './query-nodes';
+} from './query-node';
 
 export type ObjectSelectorBuilder<T> = ExcludeNeverValues<{
   [K in Exclude<keyof T, number | symbol>]: GetQueryNode<K, T[K]>;
@@ -26,11 +25,7 @@ export type ObjectSelector<T extends object, R extends readonly QueryNode[]> = (
   builder: ObjectSelectorBuilder<T>,
 ) => R;
 
-type IsPrimitiveOrNestedPrimitiveArray<T> = T extends
-  | string
-  | number
-  | boolean
-  | null
+type IsPrimitiveOrNestedPrimitiveArray<T> = T extends string | number | boolean | null
   ? true
   : T extends Array<infer E> | null
   ? IsPrimitiveOrNestedPrimitiveArray<E> extends true
@@ -69,7 +64,7 @@ type GetQueryNode<K extends string, V> = IsAny<V> extends true
       definition: ObjectSelector<V, R>,
     ) => ObjectQueryNode<K, R>
   : V extends string
-  ? StringQueryNode<K>
+  ? StringQueryNode<K, V>
   : V extends number
   ? NumberQueryNode<K>
   : V extends boolean

@@ -1,7 +1,7 @@
 import { parseSelector } from './selector';
 import { ObjectSelector } from './types/ast-builder';
 
-import type { QueryNode } from './types/query-nodes';
+import type { QueryNode } from './types/query-node';
 
 const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
   `{\n${ast
@@ -9,10 +9,7 @@ const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
       (node) =>
         `${' '.repeat(indent)}${
           node.children !== null
-            ? `${node.key} ${buildQueryAst(
-                node.children as QueryNode[],
-                indent + 2,
-              )}`
+            ? `${node.key} ${buildQueryAst(node.children as QueryNode[], indent + 2)}`
             : node.key
         }`,
     )
@@ -44,12 +41,9 @@ export const buildQueryString = (
 };
 
 const operationString =
-  (method: 'query' | 'mutation' | 'subscription') =>
-  (operationName: string) => ({
+  (method: 'query' | 'mutation' | 'subscription') => (operationName: string) => ({
     variables: (variableTypes: Record<string, string>) => ({
-      select: <T extends object = any>(
-        selector: ObjectSelector<T, readonly QueryNode[]>,
-      ) => ({
+      select: <T extends object = any>(selector: ObjectSelector<T, readonly QueryNode[]>) => ({
         build: () => {
           const ast = parseSelector(selector);
           return buildQueryString(method, operationName, variableTypes, ast);
@@ -57,9 +51,7 @@ const operationString =
       }),
       build: () => buildQueryString(method, operationName, variableTypes, []),
     }),
-    select: <T extends object = any>(
-      selector: ObjectSelector<T, readonly QueryNode[]>,
-    ) => ({
+    select: <T extends object = any>(selector: ObjectSelector<T, readonly QueryNode[]>) => ({
       build: () => {
         const ast = parseSelector(selector);
         return buildQueryString(method, operationName, {}, ast);

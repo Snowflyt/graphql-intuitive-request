@@ -1,5 +1,5 @@
 import type { Merge, StringKeyOf, StringLiteral } from './common';
-import type { GraphQLNonNull, GraphQLList, GraphQLEnum } from './graphql-types';
+import type { GraphQLEnum, GraphQLList, GraphQLNonNull } from './graphql-types';
 
 type TryResolve<T extends StringKeyOf<$>, $> = $[T] extends
   | StringLiteral

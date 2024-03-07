@@ -1,4 +1,4 @@
-import { describe, it, expect, error } from 'typroof';
+import { describe, error, expect, it } from 'typroof';
 
 import { enumOf } from '../types';
 

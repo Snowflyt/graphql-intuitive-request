@@ -1,4 +1,4 @@
-import type { Constructor, StringKeyOf, IsUnknown, IsTopType } from './common';
+import type { Constructor, IsTopType, IsUnknown, StringKeyOf } from './common';
 import type { GraphQLEnum, SimpleVariantOf } from './graphql-types';
 
 /*********************

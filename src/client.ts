@@ -1,9 +1,5 @@
 import { GraphQLClient as RequestClient } from 'graphql-request';
-import {
-  createClient as createWSClient,
-  Client as WSClient,
-  ClientOptions as WSClientOptions,
-} from 'graphql-ws';
+import { createClient as createWSClient } from 'graphql-ws';
 
 import { buildQueryString } from './query-builder';
 import { createAllSelector, parseSelector } from './selector';
@@ -32,6 +28,7 @@ import type {
   WrapByType,
 } from './types/graphql-types';
 import type { QueryNode } from './types/query-node';
+import type { Client as WSClient, ClientOptions as WSClientOptions } from 'graphql-ws';
 
 type OperationResponse<
   TMethod extends 'query' | 'mutation' | 'subscription',
@@ -251,8 +248,8 @@ const _createEndpoint = <
           subscriber: (data: any) => void,
           onError?: (error: any) => void,
           onComplete?: () => void,
-        ) => {
-          const unsubscribe = wsClient.subscribe(
+        ) =>
+          wsClient.subscribe(
             { query: queryString, variables },
             {
               next: (value) => {
@@ -270,9 +267,7 @@ const _createEndpoint = <
                 onComplete?.();
               },
             },
-          );
-          return unsubscribe;
-        },
+          ),
         toQueryString: () => queryString,
         toRequestBody: () => ({ query: queryString, variables }),
       } as any;

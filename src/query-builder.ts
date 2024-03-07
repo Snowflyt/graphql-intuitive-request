@@ -1,6 +1,6 @@
 import { parseSelector } from './selector';
-import { ObjectSelector } from './types/ast-builder';
 
+import type { ObjectSelector } from './types/ast-builder';
 import type { QueryNode } from './types/query-node';
 
 const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
@@ -36,8 +36,7 @@ export const buildQueryString = (
       : ''
   }`;
   const operationBody = ast.length > 0 ? ` ${buildQueryAst(ast)}` : '';
-  const queryString = `${definitionHeader}\n  ${operationHeader}${operationBody}\n}`;
-  return queryString;
+  return `${definitionHeader}\n  ${operationHeader}${operationBody}\n}`;
 };
 
 const operationString =

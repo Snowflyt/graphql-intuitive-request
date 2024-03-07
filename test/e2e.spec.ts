@@ -1,3 +1,5 @@
+/* eslint-disable sonarjs/no-duplicate-string */
+
 import { createClient } from '../src/client';
 import { enumOf } from '../src/types';
 import { trimIndent } from '../src/utils';

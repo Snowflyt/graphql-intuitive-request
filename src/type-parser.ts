@@ -1,4 +1,4 @@
-import { getTypesEnums, GRAPHQL_BASE_TYPES, simpleVariantOf } from './types';
+import { GRAPHQL_BASE_TYPES, getTypesEnums, simpleVariantOf } from './types';
 
 import type { TypeCollection } from './types/graphql-types';
 
@@ -6,7 +6,7 @@ export const createTypeParser = ($: TypeCollection) => {
   const enums = getTypesEnums($);
   const simpleGraphQLTypes = simpleVariantOf([...GRAPHQL_BASE_TYPES, ...enums]);
 
-  const self = {
+  return {
     extractCoreType: (type: string) => {
       let result = type;
       if (result.endsWith('!')) result = result.slice(0, -1);
@@ -22,6 +22,4 @@ export const createTypeParser = ($: TypeCollection) => {
 
     isSimpleType: (type: string): boolean => simpleGraphQLTypes.includes(type),
   };
-
-  return self;
 };

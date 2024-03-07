@@ -1,22 +1,10 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2017",
-    "module": "ESNext",
-    "rootDirs": ["src", "test"],
-    "moduleResolution": "node",
+    "noEmit": false,
     "outDir": "./build/esm/",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "skipLibCheck": true,
-    "removeComments": false,
-
     "declaration": true,
     "declarationDir": "./build/types/"
   },
-  "ts-node": {
-    "esm": true
-  },
-  "exclude": ["**/*.proof.ts", "./jest.config.ts", "./test/**/*", "./build/**/*"]
+  "exclude": ["**/*.proof.ts", "./vitest.config.ts", "./test/**/*", "./build/**/*"]
 }

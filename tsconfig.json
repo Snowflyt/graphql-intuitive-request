@@ -4,16 +4,28 @@
     "lib": ["ESNext"],
     "module": "ESNext",
     "rootDirs": ["src", "test"],
-    "moduleResolution": "node",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitAny": true,
     "skipLibCheck": true,
-    "removeComments": false
-  },
-  "ts-node": {
-    "esm": true
-  },
-  "exclude": ["./jest.config.ts"]
+    "removeComments": false,
+
+    /* Resolution */
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+
+    /* Path aliases */
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@test/*": ["test/*"]
+    }
+  }
 }

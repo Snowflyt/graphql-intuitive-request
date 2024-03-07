@@ -1,5 +1,7 @@
-import { queryString } from '../src/query-builder';
-import { trimIndent } from '../src/utils';
+import { describe, expect, it } from 'vitest';
+
+import { queryString } from '@/query-builder';
+import { trimIndent } from '@/utils';
 
 describe('queryString', () => {
   it('should build a query for object return type with variables', () => {

@@ -1,8 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 
-import { createClient } from '../src/client';
-import { enumOf } from '../src/types';
-import { trimIndent } from '../src/utils';
+import { describe, expect, it } from 'vitest';
+
+import { createClient } from '@/client';
+import { enumOf } from '@/types';
+import { trimIndent } from '@/utils';
 
 describe('client', () => {
   const { mutation, query } = createClient('https://graphqlzero.almansi.me/api').withSchema({

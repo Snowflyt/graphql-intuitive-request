@@ -1,15 +1,13 @@
-import { createClient } from '../src/client';
-import { trimIndent } from '../src/utils';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
-let request: jest.Mock;
+import { createClient } from '@/client';
+import { trimIndent } from '@/utils';
 
-jest.mock('graphql-request', () => ({
-  GraphQLClient: jest.fn().mockImplementation(() => {
-    // eslint-disable-next-line @typescript-eslint/require-await
-    request = jest.fn().mockImplementation(async () => ({}));
-    return { request };
-  }),
-}));
+const request = vi.fn().mockResolvedValue({});
+vi.mock('graphql-request');
+Object.defineProperty(await import('graphql-request'), 'GraphQLClient', {
+  value: vi.fn(() => ({ request })),
+});
 
 describe('client', () => {
   const { mutation, query } = createClient('').withSchema({
@@ -70,7 +68,7 @@ describe('client', () => {
   });
 
   afterAll(() => {
-    jest.unmock('graphql-request');
+    vi.unmock('graphql-request');
   });
 
   it('should generate correct request body for simple return type with variables', async () => {

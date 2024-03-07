@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "include": ["jest.config.ts", ".eslintrc.cjs", "prettier.config.cjs"]
+  "include": ["vitest.config.ts", ".eslintrc.cjs", "prettier.config.cjs"]
 }

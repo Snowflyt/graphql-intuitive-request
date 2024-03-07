@@ -1,19 +1,8 @@
 {
+  "extends": "./tsconfig.json",
   "compilerOptions": {
-    "target": "ES2017",
-    "module": "CommonJS",
-    "rootDirs": ["src", "test"],
-    "moduleResolution": "node",
-    "outDir": "./build/cjs/",
-    "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
-    "noImplicitAny": true,
-    "skipLibCheck": true,
-    "removeComments": false
+    "noEmit": false,
+    "outDir": "./build/cjs/"
   },
-  "ts-node": {
-    "esm": true
-  },
-  "exclude": ["**/*.proof.ts", "./jest.config.ts", "./test/**/*", "./build/**/*"]
+  "exclude": ["**/*.proof.ts", "./vitest.config.ts", "./test/**/*", "./build/**/*"]
 }

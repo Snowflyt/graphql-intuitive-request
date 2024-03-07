@@ -136,17 +136,17 @@ type OperationFunction<
           : unknown)
   : never;
 
-type AbstractEndpoint = {
+type AbstractClient = {
   getRequestClient: () => RequestClient;
   getWSClient: () => WSClient;
 };
 
-export type Endpoint<
+export type Client<
   TTypes extends TypeCollection,
   TQueries extends FunctionCollection = Record<string, never>,
   TMutations extends FunctionCollection = Record<string, never>,
   TSubscriptions extends FunctionCollection = Record<string, never>,
-> = AbstractEndpoint &
+> = AbstractClient &
   (TQueries extends Record<string, never>
     ? Record<string, never>
     : { query: OperationFunction<'query', TTypes, TQueries> }) &
@@ -159,7 +159,7 @@ export type Endpoint<
         subscription: OperationFunction<'subscription', TTypes, TSubscriptions>;
       });
 
-const _createEndpoint = <
+const _createClient = <
   T extends
     | {
         Query?: FunctionCollection;
@@ -187,7 +187,7 @@ const _createEndpoint = <
   requestClient: RequestClient,
   wsClient: WSClient,
   rawTypes: Types<T>,
-): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
+): Client<TTypes, TQueries, TMutations, TSubscriptions> => {
   const cancelledPromises = new WeakSet<Promise<any>>();
 
   const $ = omit(rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
@@ -434,10 +434,10 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
       >,
     >(
       types: Types<T>,
-    ): Endpoint<TTypes, TQueries, TMutations, TSubscriptions> => {
+    ): Client<TTypes, TQueries, TMutations, TSubscriptions> => {
       const requestClient = new RequestClient(url, options);
       const wsClient = createWSClient(wsOptions);
-      return _createEndpoint(requestClient, wsClient, types) as never;
+      return _createClient(requestClient, wsClient, types) as never;
     },
   }),
 
@@ -463,8 +463,8 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
     >,
   >(
     types: Types<T>,
-  ): Endpoint<TTypes, TQueries, TMutations> => {
+  ): Client<TTypes, TQueries, TMutations> => {
     const requestClient = new RequestClient(url, options);
-    return _createEndpoint(requestClient, null as never, types) as never;
+    return _createClient(requestClient, null as never, types) as never;
   },
 });

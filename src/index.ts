@@ -4,4 +4,4 @@ export { selectorBuilder } from './selector';
 export { types, enumOf } from './types';
 
 export type { Types } from './types';
-export type { Endpoint, ClientOptions, WSOptions } from './client';
+export type { Client, ClientOptions, WSOptions } from './client';

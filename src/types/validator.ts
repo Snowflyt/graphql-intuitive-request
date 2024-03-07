@@ -120,6 +120,8 @@ type ValidateDefinition<TDef, $> = TDef extends string
     >
   : IsUnknown<TDef> extends true
   ? StringKeyOf<$>
+  : TDef extends readonly [infer TVariables, 'void']
+  ? [ValidateDefinition<TVariables, $>, 'void']
   : Evaluate<{ [P in keyof TDef]: ValidateDefinition<TDef[P], $> }>;
 
 declare const id: unique symbol;

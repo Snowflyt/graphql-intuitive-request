@@ -36,10 +36,9 @@ export type TypeCollection = Record<string, TypeRepresentation | GraphQLEnum>;
 export type FunctionRepresentation = [Record<string, StringLiteral>, StringLiteral];
 export type FunctionCollection = Record<string, FunctionRepresentation>;
 
-export type ParseReturnType<T extends StringLiteral, $ extends TypeCollection> = Parse<
-  T,
-  $ & BaseEnvironment
-> extends infer R
+export type ParseReturnType<T extends StringLiteral, $ extends TypeCollection> = T extends 'void'
+  ? { result: void; type: 'unknown' }
+  : Parse<T, $ & BaseEnvironment> extends infer R
   ? [R] extends [Array<infer U> | null]
     ? null extends R
       ? null extends U

@@ -22,6 +22,7 @@ export const createTypeParser = ($: TypeCollection) => {
 
     isSimpleType: (type: string): boolean => {
       let coreType = self.extractCoreType(type);
+      if (coreType === 'void') return true;
       if (simpleGraphQLTypes.includes(coreType)) return true;
       let depth = 0;
       const MAXIMUM_DEPTH = 50;

@@ -102,6 +102,7 @@ The syntax is almost the same as the one used in GraphQL:
 - Wrapping a type in `[]` indicates that the type is a list.
 - You can use `enumOf` to define an enum type, and it will be inferred as a union type of string literals. Enum type declarations must be placed on the top level of the `withSchema` function—Just like in a GraphQL schema, enum types cannot be defined inside other types.
 - Queries, mutations and subscriptions are defined specially in `Query`, `Mutation` and `Subscription` fields of the `withSchema` function. The value of each field should be an array of 2 elements, the first element is an object representing the input type of the operation (empty object `{}` if there's no input), and the second element is the return type of the operation.
+- Especially, you can use `'void'` as the return type of a mutation if it does not return anything.
 
 You may notice that we actually define a circular reference between `User` and `Post` in the `withSchema` function. This is not a problem, because graphql-intuitive-request is smart enough to handle this case. However, when dealing with circular references, you should be careful to avoid infinite loops—graphql-intuitive-request supports selecting all fields of an object recursively (as will be shown later), and infinite loops may occur when selecting all fields of an object with circular references.
 

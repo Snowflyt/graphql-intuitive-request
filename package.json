@@ -28,11 +28,12 @@
   "module": "./esm/index.js",
   "scripts": {
     "prebuild": "npm run clean",
-    "build": "cpy ./package.json ./build/ && replace-in-file \"  \\\"private\\\": true,\" \"\" ./build/package.json && cpy ./docs/ ./build/ && cpy ./README.md ./build/ && cpy ./LICENSE ./build/ && tsc -p tsconfig.esm.json && cpy ./build/types/types/**/*.d.ts ./build/types/ && rimraf ./build/types/types && rimraf ./build/esm/types && tsc -p tsconfig.cjs.json && rimraf ./build/cjs/types && prettier --loglevel=silent --print-width 80 --write ./build/**/*.js && prettier --loglevel=silent --print-width 80 --write ./build/**/*.d.ts && replace-in-file /\\.\\/types\\//g ./ ./build/**/*.d.ts --isRegex && eslint --fix ./build/esm/**/*.js && eslint --fix ./build/**/*.d.ts",
+    "build": "cpy ./package.json ./build/ && replace-in-file \"  \\\"private\\\": true,\" \"\" ./build/package.json && replace-in-file \"  \\\"prepare\\\": \\\"husky\\\",\" \"\" ./build/package.json && prettier --loglevel=silent --print-width 80 --write ./build/package.json && cpy ./docs/ ./build/ && cpy ./README.md ./build/ && cpy ./LICENSE ./build/ && tsc -p tsconfig.esm.json && cpy ./build/types/types/**/*.d.ts ./build/types/ && rimraf ./build/types/types && rimraf ./build/esm/types && tsc -p tsconfig.cjs.json && rimraf ./build/cjs/types && prettier --loglevel=silent --print-width 80 --write ./build/**/*.js && prettier --loglevel=silent --print-width 80 --write ./build/**/*.d.ts && replace-in-file /\\.\\/types\\//g ./ ./build/**/*.d.ts --isRegex && eslint --fix ./build/esm/**/*.js && eslint --fix ./build/**/*.d.ts",
     "clean": "rimraf build",
     "format": "prettier --write {src,test}/**/*.{js,ts,json} *.{js,cjs,mjs,ts,cts,mts,json,md}",
     "lint": "eslint {src,test}/**/*.{js,ts} *.{js,cjs,mjs,ts,cts,mts}",
     "lint:fix": "eslint --fix {src,test}/**/*.{js,ts} *.{js,cjs,mjs,ts,cts,mts}",
+    "prepare": "husky",
     "test": "vitest run",
     "test-types": "typroof",
     "test:cov": "vitest run --coverage",
@@ -46,6 +47,8 @@
     "graphql-ws": "^5.15.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.0.3",
+    "@types/lint-staged": "^13.3.0",
     "@types/node": "^20.11.25",
     "@types/prettier": "^2.7.3",
     "@types/ws": "^8.5.10",
@@ -61,6 +64,8 @@
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-sonarjs": "^0.24.0",
     "eslint-plugin-sort-destructure-keys": "^1.5.0",
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
     "prettier": "^2.8.8",
     "prettier-plugin-packagejson": "^2.4.12",
     "replace-in-file": "^7.1.0",

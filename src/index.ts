@@ -4,4 +4,4 @@ export { selectorBuilder } from './selector';
 export { schema, enumOf } from './types';
 
 export type { Schema } from './types';
-export type { Client, ClientOptions, WSOptions } from './client';
+export type { Client, ClientOptions, InferClientFromSchema, WSOptions } from './client';

@@ -462,3 +462,21 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
     return _createClient(requestClient, null as never, types) as never;
   },
 });
+
+/**
+ * Infer the client type from a GraphQL schema.
+ */
+export type InferClientFromSchema<
+  TSchema extends
+    | {
+        Query?: FunctionCollection;
+        Mutation?: FunctionCollection;
+        Subscription?: FunctionCollection;
+      }
+    | TypeCollection,
+> = Client<
+  Cast<Omit<TSchema, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
+  Cast<WithDefault<TSchema['Query'], Record<string, never>>, FunctionCollection>,
+  Cast<WithDefault<TSchema['Mutation'], Record<string, never>>, FunctionCollection>,
+  Cast<WithDefault<TSchema['Subscription'], Record<string, never>>, FunctionCollection>
+>;

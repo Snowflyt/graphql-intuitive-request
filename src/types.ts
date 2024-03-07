@@ -19,7 +19,7 @@ export const simpleVariantOf = (types: string[]) =>
     `[${type}!]!`,
   ]);
 
-export type Types<
+export type Schema<
   T extends
     | {
         Query?: FunctionCollection;
@@ -34,7 +34,7 @@ export type Types<
   ? Validate<T, BaseEnvironment>
   : never;
 
-export const types = <
+export const schema = <
   T extends
     | {
         Query?: FunctionCollection;
@@ -43,8 +43,8 @@ export const types = <
       }
     | TypeCollection,
 >(
-  types: Types<T>,
-) => types;
+  schema: Schema<T>,
+) => schema;
 
 export const enumOf = <S extends StringLiteral>(...values: S[]): GraphQLEnum<S> => ({
   __graphQLType: 'enum',
@@ -60,5 +60,5 @@ export const isGraphQLEnum = (value: unknown): value is GraphQLEnum =>
   Array.isArray(value.values) &&
   value.values.every((v) => typeof v === 'string');
 
-export const getTypesEnums = <T extends Types<T>>($: T): string[] =>
+export const getTypesEnums = <T extends Schema<T>>($: T): string[] =>
   Object.keys(Object.entries($).filter(isGraphQLEnum));

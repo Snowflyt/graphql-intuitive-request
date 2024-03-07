@@ -20,9 +20,9 @@ const createBuilder = <T>(): ObjectSelectorBuilder<T> =>
     },
   ) as any;
 
-export const createAllSelector = <T extends string, TTypes extends TypeCollection>(
+export const createAllSelector = <T extends string, $ extends TypeCollection>(
   type: T,
-  $: TTypes,
+  $: $,
 ): any => {
   const parser = createTypeParser($);
 

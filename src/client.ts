@@ -6,7 +6,7 @@ import { createAllSelector, parseSelector } from './selector';
 import { createTypeParser } from './type-parser';
 import { capitalize, omit, pick, requiredKeysCount } from './utils';
 
-import type { Types } from './types';
+import type { Schema } from './types';
 import type { ObjectSelector } from './types/ast-builder';
 import type { ParseNodes } from './types/ast-parser';
 import type {
@@ -70,16 +70,16 @@ type ByMixinHelper<TVariables, TKeys, $, R, Result = unknown> = TKeys extends re
 
 type OperationFunction<
   TMethod extends 'query' | 'mutation' | 'subscription',
-  TTypes extends TypeCollection,
+  $ extends TypeCollection,
   TOperations extends FunctionCollection,
 > = <ON extends keyof TOperations>(
   operationName: ON,
-) => ParseReturnType<TOperations[ON][1], TTypes> extends {
+) => ParseReturnType<TOperations[ON][1], $> extends {
   result: infer R;
   type: infer T;
 }
   ? R extends object
-    ? VariablesOf<TOperations[ON][0], TTypes> extends Record<string, never>
+    ? VariablesOf<TOperations[ON][0], $> extends Record<string, never>
       ? {
           select: <const TQueryNodes extends readonly QueryNode[]>(
             selector: ObjectSelector<R, TQueryNodes>,
@@ -93,14 +93,14 @@ type OperationFunction<
             selector: ObjectSelector<R, TQueryNodes>,
           ) => {
             by: (
-              variables: VariablesOf<TOperations[ON][0], TTypes>,
+              variables: VariablesOf<TOperations[ON][0], $>,
             ) => OperationResponse<
               TMethod,
               WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
             >;
           } & ByMixin<
             TOperations[ON][0],
-            TTypes,
+            $,
             OperationResponse<TMethod, WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>>
           > &
             (RequiredFieldsCount<TOperations[ON][0]> extends 0
@@ -110,11 +110,11 @@ type OperationFunction<
                 >
               : unknown);
           by: (
-            variables: VariablesOf<TOperations[ON][0], TTypes>,
+            variables: VariablesOf<TOperations[ON][0], $>,
           ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
         } & ByMixin<
           TOperations[ON][0],
-          TTypes,
+          $,
           OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
         > &
           (RequiredFieldsCount<TOperations[ON][0]> extends 0
@@ -124,11 +124,11 @@ type OperationFunction<
     ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
     : {
         by: (
-          variables: VariablesOf<TOperations[typeof operationName][0], TTypes>,
+          variables: VariablesOf<TOperations[typeof operationName][0], $>,
         ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
       } & ByMixin<
         TOperations[ON][0],
-        TTypes,
+        $,
         OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
       > &
         (RequiredFieldsCount<TOperations[ON][0]> extends 0
@@ -142,21 +142,21 @@ type AbstractClient = {
 };
 
 export type Client<
-  TTypes extends TypeCollection,
+  $ extends TypeCollection,
   TQueries extends FunctionCollection = Record<string, never>,
   TMutations extends FunctionCollection = Record<string, never>,
   TSubscriptions extends FunctionCollection = Record<string, never>,
 > = AbstractClient &
   (TQueries extends Record<string, never>
     ? Record<string, never>
-    : { query: OperationFunction<'query', TTypes, TQueries> }) &
+    : { query: OperationFunction<'query', $, TQueries> }) &
   (TMutations extends Record<string, never>
     ? Record<string, never>
-    : { mutation: OperationFunction<'mutation', TTypes, TMutations> }) &
+    : { mutation: OperationFunction<'mutation', $, TMutations> }) &
   (TSubscriptions extends Record<string, never>
     ? Record<string, never>
     : {
-        subscription: OperationFunction<'subscription', TTypes, TSubscriptions>;
+        subscription: OperationFunction<'subscription', $, TSubscriptions>;
       });
 
 const _createClient = <
@@ -167,10 +167,7 @@ const _createClient = <
         Subscription?: FunctionCollection;
       }
     | TypeCollection,
-  TTypes extends TypeCollection = Cast<
-    Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
-    TypeCollection
-  >,
+  $ extends TypeCollection = Cast<Omit<T, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
   TQueries extends FunctionCollection = Cast<
     WithDefault<T['Query'], Record<string, never>>,
     FunctionCollection
@@ -186,8 +183,8 @@ const _createClient = <
 >(
   requestClient: RequestClient,
   wsClient: WSClient,
-  rawTypes: Types<T>,
-): Client<TTypes, TQueries, TMutations, TSubscriptions> => {
+  rawTypes: Schema<T>,
+): Client<$, TQueries, TMutations, TSubscriptions> => {
   const cancelledPromises = new WeakSet<Promise<any>>();
 
   const $ = omit(rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
@@ -416,7 +413,7 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
             Subscription?: FunctionCollection;
           }
         | TypeCollection,
-      TTypes extends TypeCollection = Cast<
+      $ extends TypeCollection = Cast<
         Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
         TypeCollection
       >,
@@ -433,8 +430,8 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
         FunctionCollection
       >,
     >(
-      types: Types<T>,
-    ): Client<TTypes, TQueries, TMutations, TSubscriptions> => {
+      types: Schema<T>,
+    ): Client<$, TQueries, TMutations, TSubscriptions> => {
       const requestClient = new RequestClient(url, options);
       const wsClient = createWSClient(wsOptions);
       return _createClient(requestClient, wsClient, types) as never;
@@ -449,10 +446,7 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
           Subscription?: FunctionCollection;
         }
       | TypeCollection,
-    TTypes extends TypeCollection = Cast<
-      Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
-      TypeCollection
-    >,
+    $ extends TypeCollection = Cast<Omit<T, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
     TQueries extends FunctionCollection = Cast<
       WithDefault<T['Query'], Record<string, never>>,
       FunctionCollection
@@ -462,8 +456,8 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
       FunctionCollection
     >,
   >(
-    types: Types<T>,
-  ): Client<TTypes, TQueries, TMutations> => {
+    types: Schema<T>,
+  ): Client<$, TQueries, TMutations> => {
     const requestClient = new RequestClient(url, options);
     return _createClient(requestClient, null as never, types) as never;
   },

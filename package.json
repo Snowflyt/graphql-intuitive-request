@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "private": true,
   "description": "Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutations and subscriptions",
   "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",
@@ -26,6 +26,7 @@
   },
   "main": "./cjs/index.js",
   "module": "./esm/index.js",
+  "types": "./types/index.d.ts",
   "scripts": {
     "prebuild": "npm run clean",
     "build": "cpy ./package.json ./build/ && replace-in-file \"  \\\"private\\\": true,\" \"\" ./build/package.json && replace-in-file \"  \\\"prepare\\\": \\\"husky\\\",\" \"\" ./build/package.json && prettier --loglevel=silent --print-width 80 --write ./build/package.json && cpy ./docs/ ./build/ && cpy ./README.md ./build/ && cpy ./LICENSE ./build/ && tsc -p tsconfig.esm.json && cpy ./build/types/types/**/*.d.ts ./build/types/ && rimraf ./build/types/types && rimraf ./build/esm/types && tsc -p tsconfig.cjs.json && rimraf ./build/cjs/types && prettier --loglevel=silent --print-width 80 --write ./build/**/*.js && prettier --loglevel=silent --print-width 80 --write ./build/**/*.d.ts && replace-in-file /\\.\\/types\\//g ./ ./build/**/*.d.ts --isRegex && eslint --fix ./build/esm/**/*.js && eslint --fix ./build/**/*.d.ts",

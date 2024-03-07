@@ -30,6 +30,7 @@
     "prebuild": "npm run clean",
     "build": "cpy ./package.json ./build/ && replace-in-file \"  \\\"private\\\": true,\" \"\" ./build/package.json && cpy ./docs/ ./build/ && cpy ./README.md ./build/ && cpy ./LICENSE ./build/ && tsc -p tsconfig.esm.json && cpy ./build/types/types/**/*.d.ts ./build/types/ && rimraf ./build/types/types && rimraf ./build/esm/types && tsc -p tsconfig.cjs.json && rimraf ./build/cjs/types && prettier --loglevel=silent --print-width 80 --write ./build/**/*.js && prettier --loglevel=silent --print-width 80 --write ./build/**/*.d.ts && replace-in-file /\\.\\/types\\//g ./ ./build/**/*.d.ts --isRegex && eslint --fix ./build/esm/**/*.js && eslint --fix ./build/**/*.d.ts",
     "clean": "rimraf build",
+    "format": "prettier --write {src,test}/**/*.{js,ts,json} *.{js,cjs,mjs,ts,cts,mts,json,md}",
     "lint": "eslint . --ext .js,.ts",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
     "test-types": "typroof"
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.25",
+    "@types/prettier": "^2.7.3",
     "@types/ws": "^8.5.10",
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",

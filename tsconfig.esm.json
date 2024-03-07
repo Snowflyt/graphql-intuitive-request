@@ -13,7 +13,7 @@
     "removeComments": false,
 
     "declaration": true,
-    "declarationDir": "./build/types/",
+    "declarationDir": "./build/types/"
   },
   "ts-node": {
     "esm": true

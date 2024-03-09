@@ -3,5 +3,7 @@ export { queryString, mutationString, subscriptionString } from './query-builder
 export { selectorBuilder } from './selector';
 export { schema, enumOf } from './types';
 
+export type { ClientError } from 'graphql-request';
+
 export type { Schema } from './types';
 export type { Client, ClientOptions, InferClientFromSchema, WSOptions } from './client';

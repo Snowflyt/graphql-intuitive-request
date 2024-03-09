@@ -99,6 +99,11 @@ export type CanBeNull<T> = null extends string ? unknown : null extends T ? true
  */
 export type CanBeUndefined<T> = null extends string ? unknown : undefined extends T ? true : false;
 
+/**
+ * Judge whether `T` extends `U`.
+ */
+export type Extends<T, U> = [T] extends [U] ? true : false;
+
 /*****************
  * Utility types *
  *****************/
@@ -195,6 +200,13 @@ export type WithDefault<T, D> = unknown extends T ? D : T;
 export type Cast<T, U> = T extends U ? T : never;
 
 /**
+ * Merge two objects together. Optional keys are not considered.
+ */
+export type SimpleMerge<L, R> = {
+  [P in keyof L | keyof R]: P extends keyof R ? R[P] : P extends keyof L ? L[P] : never;
+};
+
+/**
  * Merge two objects together. Optional keys are considered.
  *
  * @example
@@ -218,3 +230,33 @@ type _SpreadProperties<L, R, K extends keyof L & keyof R> = {
   [P in K]: L[P] | Exclude<R[P], undefined>;
 };
 type _Id<T> = T extends infer U ? { [K in keyof U]: U[K] } : never;
+
+// prettier-ignore
+export type Letter = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H' | 'I' | 'J' | 'K' | 'L' | 'M'
+  | 'N' | 'O' | 'P' | 'Q' | 'R' | 'S' | 'T' | 'U' | 'V' | 'W' | 'X' | 'Y' | 'Z' 
+  | 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i' | 'j' | 'k' | 'l' | 'm' | 'n' | 'o'
+  | 'p' | 'q' | 'r' | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z';
+export type Digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9';
+
+/****************
+ * Control flow *
+ ****************/
+export type Result<T, E> = Ok<T> | Err<E>;
+export interface Ok<T> {
+  readonly __tag: 'Ok';
+  readonly value: T;
+}
+export interface Err<E> {
+  readonly __tag: 'Err';
+  readonly error: E;
+}
+
+/********************
+ * String utilities *
+ ********************/
+export namespace Str {
+  export type Head<S extends string> = S extends `${infer H}${string}` ? H : never;
+  export type Tail<S extends string> = S extends `${string}${infer T}` ? T : never;
+
+  export type IsEmpty<S extends string> = S extends '' ? true : false;
+}

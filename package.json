@@ -1,6 +1,6 @@
 {
   "name": "graphql-intuitive-request",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Intuitive and (more importantly) TS-friendly GraphQL client for queries, mutations and subscriptions",
   "homepage": "https://github.com/Snowfly-T/graphql-intuitive-request",

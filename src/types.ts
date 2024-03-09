@@ -60,5 +60,5 @@ export const isGraphQLEnum = (value: unknown): value is GraphQLEnum =>
   Array.isArray(value.values) &&
   value.values.every((v) => typeof v === 'string');
 
-export const getTypesEnums = <T extends Schema<T>>($: T): string[] =>
+export const getTypesEnums = ($: TypeCollection): string[] =>
   Object.keys(Object.entries($).filter(isGraphQLEnum));

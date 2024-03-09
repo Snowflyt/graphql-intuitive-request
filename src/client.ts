@@ -136,6 +136,19 @@ type OperationFunction<
           : unknown)
   : never;
 
+type QueryFunction<
+  TQueries extends FunctionCollection,
+  $ extends TypeCollection,
+> = OperationFunction<'query', $, TQueries>;
+type MutationFunction<
+  TMutations extends FunctionCollection,
+  $ extends TypeCollection,
+> = OperationFunction<'mutation', $, TMutations>;
+type SubscriptionFunction<
+  TSubscriptions extends FunctionCollection,
+  $ extends TypeCollection,
+> = OperationFunction<'subscription', $, TSubscriptions>;
+
 type AbstractClient = {
   getRequestClient: () => RequestClient;
   getWSClient: () => WSClient;
@@ -149,15 +162,16 @@ export type Client<
 > = AbstractClient &
   (TQueries extends Record<string, never>
     ? Record<string, never>
-    : { query: OperationFunction<'query', $, TQueries> }) &
+    : // HACK: Spread `$` immediately to make type information more readable
+      { query: QueryFunction<TQueries, { [P in keyof $]: $[P] }> }) &
   (TMutations extends Record<string, never>
     ? Record<string, never>
-    : { mutation: OperationFunction<'mutation', $, TMutations> }) &
+    : // HACK: Spread `$` immediately to make type information more readable
+      { mutation: MutationFunction<TMutations, { [P in keyof $]: $[P] }> }) &
   (TSubscriptions extends Record<string, never>
     ? Record<string, never>
-    : {
-        subscription: OperationFunction<'subscription', $, TSubscriptions>;
-      });
+    : // HACK: Spread `$` immediately to make type information more readable
+      { subscription: SubscriptionFunction<TSubscriptions, { [P in keyof $]: $[P] }> });
 
 const _createClient = <
   T extends

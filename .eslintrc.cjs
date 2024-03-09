@@ -2,7 +2,7 @@
 
 /* eslint-env node */
 
-/** @satisfies {import("eslint").Linter.Config} */
+/** @satisfies {import('eslint').Linter.Config} */
 const config = {
   root: true,
   extends: [
@@ -21,7 +21,8 @@ const config = {
     project: ['./tsconfig.json', './tsconfig.eslint.json'],
     tsconfigRootDir: __dirname,
   },
-  plugins: ['sort-destructure-keys'],
+  ignorePatterns: ['!.lintstagedrc.js'],
+  plugins: ['sonarjs', 'sort-destructure-keys'],
   rules: {
     '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
     '@typescript-eslint/no-explicit-any': 'off',
@@ -32,6 +33,7 @@ const config = {
     '@typescript-eslint/no-unsafe-call': 'off',
     '@typescript-eslint/no-unsafe-member-access': 'off',
     '@typescript-eslint/no-unsafe-return': 'off',
+    '@typescript-eslint/no-unused-vars': 'off',
     'import/consistent-type-specifier-style': ['error', 'prefer-top-level'],
     'import/namespace': 'off',
     'import/no-unresolved': 'off',

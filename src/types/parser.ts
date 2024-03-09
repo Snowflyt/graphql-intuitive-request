@@ -15,11 +15,23 @@ export type Parse<T, $> = T extends Record<string, StringLiteral>
       { [P in keyof T as P extends `${infer K}?` ? K : never]?: Parse<T[P], $> }
     >
   : T extends GraphQLNonNull<infer U extends StringKeyOf<$>>
-  ? TryResolve<U, $>
+  ? // HACK: I use this ugly `infer R` instead of just `Exclude<..., null>` because the latter will
+    // cause a infinite loop when compiling—I don't know why, but it works.
+    TryResolve<U, $> extends infer R
+    ? R extends U | null
+      ? U
+      : R
+    : never
   : T extends StringKeyOf<$>
   ? TryResolve<T, $> | null
   : T extends GraphQLNonNull<GraphQLList<infer U>>
-  ? Parse<U, $>[]
+  ? // HACK: I use this ugly `infer R` instead of just `Exclude<..., null>` because the latter will
+    // cause a infinite loop when compiling—I don't know why, but it works.
+    Parse<U, $>[] extends infer R
+    ? R extends U | null
+      ? U
+      : R
+    : never
   : T extends GraphQLList<infer U>
   ? Parse<U, $>[] | null
   : T;

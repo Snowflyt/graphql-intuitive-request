@@ -56,7 +56,7 @@ const allUsers = await query('users').select((user) => [
   ]),
 ]);
 
-/**
+/*
  * The type of `post` is inferred as
  * {
  *   title: string;
@@ -257,6 +257,59 @@ The `subscribe` method accepts three parameters:
 - subscriber: Necessary. The subscriber function. It will be called when a new value is emitted by the subscription. It accepts one parameter, which is the value emitted by the subscription.
 - onError: Optional. The error handler. It will be called when an error is emitted by the subscription. It accepts one parameter, which is the error emitted by the subscription.
 - onComplete: Optional. The completion handler. It will be called when the subscription is completed. It accepts no parameter.
+
+### Infer TypeScript types from GraphQL schema
+
+It is annoying to define a type in GraphQL schema and repeat the same type in TypeScript. graphql-intuitive-request provides a convenient way to infer TypeScript types from the GraphQL schema.
+
+`schema` is a helper function to validate a GraphQL schema. It simply returns the schema itself and does nothing at runtime, but it is useful for TypeScript to ensure that the schema is valid.
+
+```typescript
+import { createClient, enumOf, infer, schema } from 'graphql-intuitive-request';
+
+const $ = schema({
+  User: {
+    id: 'Int!',
+    username: 'String!',
+    email: 'String',
+  },
+  Post: {
+    id: 'Int!',
+    status: 'PostStatus!',
+    title: 'String!',
+    content: 'String!',
+    author: 'User!',
+  },
+  PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
+
+  Query: {
+    users: [{}, '[User!]!'],
+    post: [{ id: 'Int!' }, 'Post'],
+  },
+});
+
+export const client = createClient('https://example.com/graphql').withSchema($);
+```
+
+After that, you can use the `infer` helper function to infer TypeScript types from the schema.
+
+```typescript
+const $$ = infer($);
+
+/*
+ * The type of `Post` is inferred as
+ * Array<{
+ *   id: number;
+ *   status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+ *   title: string;
+ *   content: string;
+ *   author: { id: number; username: string; email: string | null };
+ * }>
+ */
+export type Post = typeof $$.Post;
+```
+
+As you can see, you can use `typeof inferred.<Type>` to get the inferred TypeScript type of a type in the schema. Like `schema`, `infer` also does nothing at runtime, it is only used to infer TypeScript types from the schema.
 
 ### Create object selector to eliminate duplication
 

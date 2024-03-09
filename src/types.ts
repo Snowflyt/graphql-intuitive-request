@@ -1,10 +1,11 @@
-import type { StringLiteral, ValueOf } from './types/common';
+import type { StringKeyOf, StringLiteral, ValueOf } from './types/common';
 import type {
   BaseEnvironment,
   FunctionCollection,
   GraphQLEnum,
   TypeCollection,
 } from './types/graphql-types';
+import type { Parse } from './types/parser';
 import type { Validate } from './types/validator';
 
 export const GRAPHQL_BASE_TYPES = ['ID', 'Int', 'Float', 'String', 'Boolean'] as const;
@@ -56,6 +57,34 @@ export const schema = <
 >(
   schema: Schema<T>,
 ) => schema;
+
+/**
+ * Infer the type of a GraphQL schema in TypeScript.
+ * @param _ The schema to infer.
+ * @returns
+ */
+export const infer = <
+  $ extends
+    | {
+        Query?: FunctionCollection;
+        Mutation?: FunctionCollection;
+        Subscription?: FunctionCollection;
+      }
+    | TypeCollection,
+>(
+  _: $,
+) => {
+  const createInfiniteProxy = <T extends object>() =>
+    new Proxy({} as T, {
+      get: (): any => createInfiniteProxy(),
+    });
+  return createInfiniteProxy<{
+    [P in StringKeyOf<Omit<$, 'Query' | 'Mutation' | 'Subscription'>>]: Exclude<
+      Parse<$[P], $ & BaseEnvironment>,
+      null
+    >;
+  }>();
+};
 
 /**
  * Create a GraphQL enum type.

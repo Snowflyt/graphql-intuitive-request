@@ -142,14 +142,14 @@ npm install graphql-intuitive-request
 const { query, mutation } = createClient('https://example.com/graphql').withSchema({
   /* ... */
   Query: {
-    user: [{ id: 'Int' }, 'User'],
-    users: [{}, 'User[]'],
+    user: [{ id: 'Int!' }, 'User!'],
+    users: [{}, '[User!]!'],
     /* ... */
   },
   Mutation: {
-    login: [{ input: 'LoginInput' }, 'LoginOutput'],
-    logout: [{}, 'Boolean'],
-    removeUser: [{ id: 'Int' }, 'Boolean'],
+    login: [{ input: 'LoginInput!' }, 'LoginOutput!'],
+    logout: [{}, 'Boolean!'],
+    removeUser: [{ id: 'Int!' }, 'Boolean!'],
     /* ... */
   },
 });
@@ -180,7 +180,7 @@ const { mutation, subscription } = createClient('https://example.com/graphql')
   .withSchema({
     /* ... */
     Subscription: {
-      commentAdded: [{ postId: 'Int' }, 'Comment'],
+      commentAdded: [{ postId: 'Int!' }, 'Comment!'],
     },
   });
 

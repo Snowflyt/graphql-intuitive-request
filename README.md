@@ -399,6 +399,33 @@ const client = createClient('http://example.com/graphql', {
 });
 ```
 
+### Handle errors
+
+It is worth noting graphql-intuitive-request still use the same error handling mechanism as graphql-request. You can handle errors by catching them. The type of the error is `ClientError` from `graphql-request`, and graphql-intuitive-request also re-exports it.
+
+```typescript
+import { ClientError } from 'graphql-intuitive-request';
+import { query } from './client';
+
+try {
+  const user = await query('user')
+    .select((user) => [user.id, user.name])
+    .byId(1);
+  console.log(user);
+} catch (error) {
+  if (error instanceof ClientError) console.error(error.response.errors);
+  else console.error(error);
+}
+
+// ... or use `Promise.catch`
+void query('user')
+  .select((user) => [user.id, user.name])
+  .byId(1)
+  .catch((err: ClientError) => {
+    console.error(err.response.errors);
+  });
+```
+
 ### Work with graphql-ws
 
 The subscription feature of graphql-intuitive-request is built on top of graphql-ws, so you can use all the features of graphql-ws with graphql-intuitive-request.

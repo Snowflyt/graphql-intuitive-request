@@ -33,7 +33,11 @@ type IsPrimitiveOrNestedPrimitiveArray<T> = T extends string | number | boolean 
     : false
   : false;
 
-type GetQueryNode<K extends string, V> = IsAny<V> extends true
+type GetQueryNode<
+  K extends string,
+  V,
+  TIsLastNullable extends boolean = false,
+> = IsAny<V> extends true
   ? unknown
   : IsUnknown<V> extends true
   ? unknown
@@ -42,9 +46,17 @@ type GetQueryNode<K extends string, V> = IsAny<V> extends true
   : IsFunction<V> extends true
   ? never
   : CanBeUndefined<V> extends true
-  ? NullableQueryNode<GetQueryNode<K, Exclude<V, undefined>>>
+  ? GetQueryNode<K, Exclude<V, undefined>, true> extends infer R
+    ? R extends (...args: any[]) => unknown
+      ? R
+      : NullableQueryNode<R>
+    : never
   : CanBeNull<V> extends true
-  ? NullableQueryNode<GetQueryNode<K, Exclude<V, null>>>
+  ? GetQueryNode<K, Exclude<V, null>, true> extends infer R
+    ? R extends (...args: any[]) => unknown
+      ? R
+      : NullableQueryNode<R>
+    : never
   : V extends Array<infer E>
   ? IsPrimitiveOrNestedPrimitiveArray<E> extends true
     ? GetQueryNode<K, E> extends QueryNode
@@ -55,14 +67,22 @@ type GetQueryNode<K extends string, V> = IsAny<V> extends true
     : E extends object
     ? E extends Array<any>
       ? never
+      : TIsLastNullable extends true
+      ? <const R extends readonly QueryNode[]>(
+          definition: ObjectSelector<E, R>,
+        ) => NullableQueryNode<ArrayQueryNode<K, ObjectQueryNode<K, R>>>
       : <const R extends readonly QueryNode[]>(
           definition: ObjectSelector<E, R>,
         ) => ArrayQueryNode<K, ObjectQueryNode<K, R>>
     : never
   : V extends object
-  ? <const R extends readonly QueryNode[]>(
-      definition: ObjectSelector<V, R>,
-    ) => ObjectQueryNode<K, R>
+  ? TIsLastNullable extends true
+    ? <const R extends readonly QueryNode[]>(
+        definition: ObjectSelector<V, R>,
+      ) => NullableQueryNode<ObjectQueryNode<K, R>>
+    : <const R extends readonly QueryNode[]>(
+        definition: ObjectSelector<V, R>,
+      ) => ObjectQueryNode<K, R>
   : V extends string
   ? StringQueryNode<K, V>
   : V extends number

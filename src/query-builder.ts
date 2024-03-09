@@ -59,6 +59,15 @@ const operationString =
     build: () => buildQueryString('query', operationName, {}, []),
   });
 
+/**
+ * Create a GraphQL query string for a query operation.
+ */
 export const queryString = operationString('query');
+/**
+ * Create a GraphQL query string for a mutation operation.
+ */
 export const mutationString = operationString('mutation');
+/**
+ * Create a GraphQL query string for a subscription operation.
+ */
 export const subscriptionString = operationString('subscription');

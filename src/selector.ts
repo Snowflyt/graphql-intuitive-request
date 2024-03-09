@@ -40,6 +40,10 @@ export const createAllSelector = <T extends string, $ extends TypeCollection>(
 
 export const parseSelector = (selector: any): readonly QueryNode[] => selector(createBuilder());
 
+/**
+ * Build an object selector.
+ * @returns
+ */
 export const selectorBuilder = <T extends Record<string, any>>() => ({
   select: <R extends readonly QueryNode[]>(selector: ObjectSelector<T, R>): ObjectSelector<T, R> =>
     selector,

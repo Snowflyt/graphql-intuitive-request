@@ -19,6 +19,9 @@ export const simpleVariantOf = (types: string[]) =>
     `[${type}!]!`,
   ]);
 
+/**
+ * GraphQL schema type.
+ */
 export type Schema<
   T extends
     | {
@@ -34,6 +37,14 @@ export type Schema<
   ? Validate<T, BaseEnvironment>
   : never;
 
+/**
+ * Validate a GraphQL schema.
+ *
+ * It just returns the input schema itself and is only used to validate in TypeScript that the
+ * schema is correct.
+ * @param schema The schema to validate.
+ * @returns
+ */
 export const schema = <
   T extends
     | {
@@ -46,6 +57,11 @@ export const schema = <
   schema: Schema<T>,
 ) => schema;
 
+/**
+ * Create a GraphQL enum type.
+ * @param values The values of the enum.
+ * @returns
+ */
 export const enumOf = <S extends StringLiteral>(...values: S[]): GraphQLEnum<S> => ({
   __graphQLType: 'enum',
   values,

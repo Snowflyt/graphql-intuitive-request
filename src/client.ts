@@ -6,7 +6,8 @@ import { createAllSelector, parseSelector } from './selector';
 import { createTypeParser } from './type-parser';
 import { capitalize, omit, pick, requiredKeysCount } from './utils';
 
-import type { Schema } from './types';
+// @ts-expect-error - `schema` is only used in doc
+import type { Schema, schema } from './types';
 import type { ObjectSelector } from './types/ast-builder';
 import type { ParseNodes } from './types/ast-parser';
 import type {
@@ -154,6 +155,9 @@ type AbstractClient = {
   getWSClient: () => WSClient;
 };
 
+/**
+ * The GraphQL client.
+ */
 export type Client<
   $ extends TypeCollection,
   TQueries extends FunctionCollection = Record<string, never>,
@@ -414,11 +418,35 @@ const _createClient = <
   } as any;
 };
 
+/**
+ * Configuration used for the internally-used `graphql-request` client.
+ */
 export type ClientOptions = RequestClient['requestConfig'];
+/**
+ * Configuration used for the GraphQL over WebSocket client (from `graphql-ws`).
+ */
 export type WSOptions = WSClientOptions;
 
+/**
+ * Create a new GraphQL client.
+ * @param url The URL of the GraphQL server.
+ * @param options The options for the internally-used `graphql-request` client used by the client.
+ * @returns
+ */
 export const createClient = (url: string, options?: RequestClient['requestConfig']) => ({
+  /**
+   * Register a WebSocket client to be used for subscriptions.
+   * @param wsOptions The options for the WebSocket client (from `graphql-ws`).
+   * @returns
+   */
   withWebSocketClient: (wsOptions: WSOptions) => ({
+    /**
+     * Register a GraphQL schema to be used by the client.
+     *
+     * If you want to define the schema externally, you can use the {@link schema} function.
+     * @param types
+     * @returns
+     */
     withSchema: <
       T extends
         | {

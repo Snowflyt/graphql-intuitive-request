@@ -24,7 +24,10 @@ const config = {
   ignorePatterns: ['!.lintstagedrc.js'],
   plugins: ['sonarjs', 'sort-destructure-keys'],
   rules: {
-    '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }],
+    '@typescript-eslint/consistent-type-imports': [
+      'error',
+      { prefer: 'type-imports', disallowTypeAnnotations: false },
+    ],
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-namespace': 'off',
     '@typescript-eslint/no-non-null-assertion': 'off',

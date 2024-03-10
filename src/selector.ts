@@ -45,6 +45,7 @@ export const parseSelector = (selector: any): readonly QueryNode[] => selector(c
  * @returns
  */
 export const selectorBuilder = <T extends Record<string, any>>() => ({
-  select: <R extends readonly QueryNode[]>(selector: ObjectSelector<T, R>): ObjectSelector<T, R> =>
-    selector,
+  select: <const R extends readonly QueryNode[]>(
+    selector: ObjectSelector<T, R>,
+  ): ObjectSelector<T, R> => selector,
 });

@@ -342,9 +342,9 @@ const currentUser = await query('currentUser').select((user) => [
 Apparently, you don't want to repeat selecting the same fields of `Role` and `Permission` every time. You can easily eliminate the duplication of object selector like this:
 
 ```typescript
-import { objectSelector } from 'graphql-intuitive-request';
+import { selectorBuilder } from 'graphql-intuitive-request';
 
-const coreRoleFields = objectSelector<Role>().select((role) => [
+const coreRoleFields = selectorBuilder<Role>().select((role) => [
   role.name,
   role.description,
   role.permissions((permission) => [permission.name]),
@@ -361,6 +361,30 @@ const currentUser = await query('currentUser').select((user) => [
   user.name,
   user.roles(coreRoleFields),
 ]);
+```
+
+The type returned by `selectorBuilder` has some helper methods like `.infer` or `.inferAsList` to help you infer the TypeScript type of the selector. These methods do not actually exist at runtime, they are only used to help TypeScript infer the type of the selector.
+
+```typescript
+/*
+ * The type of `CoreRole` is inferred as
+ * {
+ *   name: string;
+ *   description: string | null;
+ *   permissions: Array<{ name: string }>;
+ * }
+ */
+type CoreRole = typeof coreRoleFields.infer;
+
+/*
+ * The type of `CoreRoleList` is inferred as
+ * Array<{
+ *   name: string;
+ *   description: string | null;
+ *   permissions: Array<{ name: string }>;
+ * }>
+ */
+type CoreRoleList = typeof coreRoleFields.inferAsList;
 ```
 
 ### Get query string

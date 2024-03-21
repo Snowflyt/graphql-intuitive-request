@@ -57,7 +57,7 @@ type GetQueryNode<
       ? R
       : NullableQueryNode<R>
     : never
-  : V extends Array<infer E>
+  : [V] extends [Array<infer E>]
   ? IsPrimitiveOrNestedPrimitiveArray<E> extends true
     ? GetQueryNode<K, E> extends QueryNode
       ? IsNever<GetQueryNode<K, E>> extends true
@@ -75,7 +75,7 @@ type GetQueryNode<
           definition: ObjectSelector<E, R>,
         ) => ArrayQueryNode<K, ObjectQueryNode<K, R>>
     : never
-  : V extends object
+  : [V] extends [object]
   ? TIsLastNullable extends true
     ? <const R extends readonly QueryNode[]>(
         definition: ObjectSelector<V, R>,
@@ -83,10 +83,10 @@ type GetQueryNode<
     : <const R extends readonly QueryNode[]>(
         definition: ObjectSelector<V, R>,
       ) => ObjectQueryNode<K, R>
-  : V extends string
+  : [V] extends [string]
   ? StringQueryNode<K, V>
-  : V extends number
+  : [V] extends [number]
   ? NumberQueryNode<K>
-  : V extends boolean
+  : [V] extends [boolean]
   ? BooleanQueryNode<K>
   : never;

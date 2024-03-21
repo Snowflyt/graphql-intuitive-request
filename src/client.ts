@@ -79,7 +79,7 @@ type OperationFunction<
   result: infer R;
   type: infer T;
 }
-  ? R extends object
+  ? [R] extends [object]
     ? VariablesOf<TOperations[ON][0], $> extends Record<string, never>
       ? {
           select: <const TQueryNodes extends readonly QueryNode[]>(

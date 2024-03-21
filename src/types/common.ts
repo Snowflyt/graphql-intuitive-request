@@ -59,9 +59,7 @@ export type IsAny<T> = boolean extends (T extends never ? true : false) ? true :
 export type IsUnknown<T> = (any extends T ? IsTopTypeUnknown<T> : false) extends true
   ? true
   : false;
-type IsTopTypeUnknown<T> = (T extends NonNullable<unknown> ? true : false) extends false
-  ? true
-  : false;
+type IsTopTypeUnknown<T> = (T extends {} ? true : false) extends false ? true : false;
 
 /**
  * Judge whether a type is never.
@@ -223,9 +221,7 @@ export type Merge<L, R> = _Id<
     Pick<R, Exclude<OptionalKeyOf<R>, keyof L>> &
     _SpreadProperties<L, R, OptionalKeyOf<R> & keyof L>
 >;
-type OptionalKeyOf<O> = {
-  [K in keyof O]-?: NonNullable<unknown> extends { [P in K]: O[K] } ? K : never;
-}[keyof O];
+type OptionalKeyOf<O> = { [K in keyof O]-?: {} extends { [P in K]: O[K] } ? K : never }[keyof O];
 type _SpreadProperties<L, R, K extends keyof L & keyof R> = {
   [P in K]: L[P] | Exclude<R[P], undefined>;
 };

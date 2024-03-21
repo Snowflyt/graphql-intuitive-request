@@ -1,6 +1,6 @@
-import type { StringKeyOf, StringLiteral } from './types/common';
+import type { StringKeyOf } from './types/common';
 import type { BaseEnvironment, GraphQLEnum, TypeCollection } from './types/graphql-types';
-import type { Parse } from './types/parser';
+import type { ParseDef } from './types/parser';
 import type { ValidateSchema } from './types/validator';
 
 export const GRAPHQL_BASE_TYPES = ['ID', 'Int', 'Float', 'String', 'Boolean'] as const;
@@ -37,7 +37,7 @@ export const infer = <$>(_: $) => {
     });
   return createInfiniteProxy<{
     [P in StringKeyOf<Omit<$, 'Query' | 'Mutation' | 'Subscription'>>]: Exclude<
-      Parse<$[P], $ & BaseEnvironment>,
+      ParseDef<$[P], $ & BaseEnvironment>['type'],
       null
     >;
   }>();
@@ -48,7 +48,7 @@ export const infer = <$>(_: $) => {
  * @param values The values of the enum.
  * @returns
  */
-export const enumOf = <S extends StringLiteral>(...values: S[]): GraphQLEnum<S> => ({
+export const enumOf = <S extends string>(...values: S[]): GraphQLEnum<S> => ({
   __graphQLType: 'enum',
   values,
 });

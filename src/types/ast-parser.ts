@@ -41,9 +41,7 @@ type GetQueryNodeType<T> = T extends NullableQueryNode<infer N>
   ? ParseNodes<C>
   : never;
 
-type ParseNode<T> = T extends QueryNode
-  ? { [K in T['key']]: GetQueryNodeType<T> }
-  : Record<never, never>;
+type ParseNode<T> = T extends QueryNode ? { [K in T['key']]: GetQueryNodeType<T> } : {};
 
 export type ParseNodes<T extends readonly QueryNode[]> = T extends readonly [
   infer H extends QueryNode,
@@ -51,18 +49,3 @@ export type ParseNodes<T extends readonly QueryNode[]> = T extends readonly [
 ]
   ? Merge<ParseNode<H>, ParseNodes<TT>>
   : unknown;
-
-export type ParseNodesByType<
-  T extends readonly QueryNode[],
-  TType extends `${any}`,
-> = TType extends 'Array<Object | null> | null'
-  ? Array<ParseNodes<T> | null> | null
-  : TType extends 'Array<Object> | null'
-  ? Array<ParseNodes<T>> | null
-  : TType extends 'Array<Object | null>'
-  ? Array<ParseNodes<T> | null>
-  : TType extends 'Array<Object>'
-  ? Array<ParseNodes<T>>
-  : TType extends 'Object | null'
-  ? ParseNodes<T> | null
-  : ParseNodes<T>;

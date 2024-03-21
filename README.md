@@ -130,7 +130,7 @@ Also, now you get **intellisense** for the fields of the query, and you can **ea
 npm install graphql-intuitive-request
 ```
 
-**Note:** Requires TypeScript >=5.0
+**Note:** Requires TypeScript >= 5.4
 
 > [!TIP]
 >

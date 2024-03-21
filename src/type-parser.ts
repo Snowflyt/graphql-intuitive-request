@@ -20,7 +20,7 @@ export const createTypeParser = ($: TypeCollection) => {
       return type;
     },
 
-    isSimpleType: (type: string): boolean => {
+    isScalarType: (type: string): boolean => {
       let coreType = self.extractCoreType(type);
       if (coreType === 'void') return true;
       if (simpleGraphQLTypes.includes(coreType)) return true;
@@ -35,7 +35,7 @@ export const createTypeParser = ($: TypeCollection) => {
       }
       if (depth === MAXIMUM_DEPTH)
         throw new Error(
-          `Unable to determine if type '${type}' is simple (recursion depth exceeded)`,
+          `Unable to determine if type '${type}' is scalar (recursion depth exceeded)`,
         );
       return false;
     },

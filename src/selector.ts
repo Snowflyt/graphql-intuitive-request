@@ -32,7 +32,7 @@ export const createAllSelector = <T extends string, $ extends TypeCollection>(
   const buildSelector = (coreType: string) => (o: any) => {
     return Object.entries(spread(coreType)).map(([key, value]) => {
       const coreType = parser.extractCoreType(value);
-      return parser.isSimpleType(coreType) ? o[key] : o[key](buildSelector(coreType));
+      return parser.isScalarType(coreType) ? o[key] : o[key](buildSelector(coreType));
     });
   };
 

@@ -1,13 +1,20 @@
-import type { StringLiteral } from './common';
-import type { Parse } from './parser';
+import type { ParseDef } from './parser';
 
 export type GraphQLNonNull<T extends string> = `${T}!`;
 export type GraphQLList<T extends string> = `[${T}]`;
 
-export interface GraphQLEnum<S extends StringLiteral = StringLiteral> {
+export interface GraphQLEnum<S extends string = string> {
   __graphQLType: 'enum';
   values: readonly S[];
 }
+
+export type GraphQLTypeVariant =
+  | 'SIMPLE'
+  | 'SIMPLE-NULLABLE'
+  | 'LIST'
+  | 'LIST-NULLABLE'
+  | 'NULLABLE-LIST'
+  | 'NULLABLE-LIST-NULLABLE';
 
 /**
  * Get simple variant of a GraphQL type (i.e. non-nullable and list variants of a type).
@@ -31,48 +38,25 @@ export interface BaseEnvironment {
   Boolean: boolean;
 }
 
-export type TypeRepresentation = Record<string, StringLiteral> | StringLiteral;
+export type TypeRepresentation = Record<string, string> | string;
 export type TypeCollection = Record<string, TypeRepresentation | GraphQLEnum>;
-export type FunctionRepresentation =
-  | ['=>', StringLiteral]
-  | [Record<string, StringLiteral>, '=>', StringLiteral];
+export type FunctionRepresentation = ['=>', string] | [Record<string, string>, '=>', string];
 export type FunctionCollection = Record<string, FunctionRepresentation>;
 
-export type ParseReturnType<T extends StringLiteral, $ extends TypeCollection> = T extends 'void'
-  ? { result: void; type: 'unknown' }
-  : Parse<T, $ & BaseEnvironment> extends infer R
-  ? [R] extends [Array<infer U> | null]
-    ? null extends R
-      ? null extends U
-        ? { result: U; type: 'Array<unknown | null> | null' }
-        : { result: U; type: 'Array<unknown> | null' }
-      : null extends U
-      ? { result: U; type: 'Array<unknown | null>' }
-      : { result: U; type: 'Array<unknown>' }
-    : [R] extends [infer U | null]
-    ? null extends R
-      ? { result: U; type: 'unknown | null' }
-      : { result: U; type: 'unknown' }
-    : never
-  : never;
-
-export type WrapByType<
-  T,
-  TType extends StringLiteral,
-> = TType extends 'Array<unknown | null> | null'
+export type WrapByVariant<T, TVariant extends string> = TVariant extends 'NULLABLE-LIST-NULLABLE'
   ? Array<T | null> | null
-  : TType extends 'Array<unknown> | null'
+  : TVariant extends 'LIST-NULLABLE'
   ? Array<T> | null
-  : TType extends 'Array<unknown | null>'
+  : TVariant extends 'NULLABLE-LIST'
   ? Array<T | null>
-  : TType extends 'Array<unknown>'
+  : TVariant extends 'LIST'
   ? Array<T>
-  : TType extends 'unknown | null'
+  : TVariant extends 'SIMPLE-NULLABLE'
   ? T | null
   : T;
 
-export type ParseInput<Fields, $> = Parse<
-  Fields,
+export type ParseInputDef<TInputDef, $> = ParseDef<
+  TInputDef,
   $ & BaseEnvironment,
   { treatNullableTypeAsOptional: true }
->;
+>['type'];

@@ -1,11 +1,9 @@
 import type { Digit, IsTopType, IsUnknown, Letter, SimpleMerge, Str, StringKeyOf } from './common';
 import type { BaseEnvironment, GraphQLEnum, SimpleVariantOf } from './graphql-types';
 
-/*********************
- * Message functions *
- *********************/
-type WriteDuplicateAliasesMessage<TName extends string> = `Type '${TName}' is already defined`;
-
+/*******************
+ * Message-related *
+ *******************/
 type BadDefinitionType = number | bigint | boolean | symbol | null | undefined;
 type Domain =
   | 'string'
@@ -179,7 +177,9 @@ export type ValidateDefinition<TDef, $, TNested = false> = TDef extends BadDefin
     ? `Field definitions must be strings (was array)`
     : `Type definitions must be strings, enums or plain objects (was array)`
   : TDef extends string
-  ? ValidateString<TDef, $>
+  ? TDef extends SimpleVariantOf<StringKeyOf<$>>
+    ? TDef
+    : ValidateString<TDef, $>
   : TDef extends GraphQLEnum
   ? TDef
   : IsUnknown<TDef> extends true
@@ -192,8 +192,8 @@ export type ValidateDefinition<TDef, $, TNested = false> = TDef extends BadDefin
  * Validate GraphQL schema definition.
  */
 export type ValidateSchema<TAliases, TEnvironment = BaseEnvironment> = {
-  [P in keyof TAliases]: P extends StringKeyOf<TEnvironment>
-    ? WriteDuplicateAliasesMessage<P & string>
+  [P in StringKeyOf<TAliases>]: P extends StringKeyOf<TEnvironment>
+    ? `Type '${P}' is already defined`
     : P extends 'Query' | 'Mutation' | 'Subscription'
     ? ValidateOperations<TAliases[P], TAliases & TEnvironment>
     : ValidateDefinition<TAliases[P], TAliases & TEnvironment>;

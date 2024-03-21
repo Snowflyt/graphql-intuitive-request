@@ -15,7 +15,8 @@ export const objectLength = <T extends object>(obj: T) =>
   Object.keys(obj).length as ObjectLength<T>;
 
 export const requiredKeysCount = <T extends Record<string, string>>(obj: T): number =>
-  (objectLength(obj) as number) - Object.keys(obj).filter((v) => v.endsWith('?')).length;
+  (objectLength(obj) as number) -
+  Object.entries(obj).filter(([k, v]) => k.endsWith('?') || !v.endsWith('!')).length;
 
 export const capitalize = (str: string) => `${str[0].toUpperCase()}${str.slice(1)}`;
 

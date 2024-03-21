@@ -167,14 +167,14 @@ export type ObjectLength<T> = TuplifyLiteralStringUnion<keyof T>['length'];
  * Get keys not ends with `?` from an object.
  */
 export type RequiredFields<T extends Record<string, string>> = keyof {
-  [K in keyof T as K extends `${any}?` ? never : K]: void;
+  [K in keyof T as K extends `${any}?` ? never : T[K] extends `${any}!` ? K : never]: void;
 };
 
 /**
  * Get the count of keys not ends with `?` from an object.
  */
 export type RequiredFieldsCount<T extends Record<string, string>> = ObjectLength<{
-  [K in keyof T as K extends `${any}?` ? never : K]: void;
+  [K in keyof T as K extends `${any}?` ? never : T[K] extends `${any}!` ? K : never]: void;
 }>;
 
 /**

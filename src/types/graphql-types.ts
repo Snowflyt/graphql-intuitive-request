@@ -69,4 +69,8 @@ export type WrapByType<
   ? T | null
   : T;
 
-export type VariablesOf<TVariables, $> = Parse<TVariables, $ & BaseEnvironment>;
+export type VariablesOf<TVariables, $> = Parse<
+  TVariables,
+  $ & BaseEnvironment,
+  { treatNullableTypeAsOptional: true }
+>;

@@ -1,12 +1,7 @@
-import type { StringKeyOf, StringLiteral, ValueOf } from './types/common';
-import type {
-  BaseEnvironment,
-  FunctionCollection,
-  GraphQLEnum,
-  TypeCollection,
-} from './types/graphql-types';
+import type { StringKeyOf, StringLiteral } from './types/common';
+import type { BaseEnvironment, GraphQLEnum, TypeCollection } from './types/graphql-types';
 import type { Parse } from './types/parser';
-import type { Validate } from './types/validator';
+import type { ValidateSchema } from './types/validator';
 
 export const GRAPHQL_BASE_TYPES = ['ID', 'Int', 'Float', 'String', 'Boolean'] as const;
 
@@ -21,24 +16,6 @@ export const simpleVariantOf = (types: string[]) =>
   ]);
 
 /**
- * GraphQL schema type.
- */
-export type Schema<
-  T extends
-    | {
-        Query?: FunctionCollection;
-        Mutation?: FunctionCollection;
-        Subscription?: FunctionCollection;
-      }
-    | TypeCollection,
-> = ValueOf<Omit<T, 'Query' | 'Mutation' | 'Subscription'>> extends
-  | Record<string, StringLiteral>
-  | StringLiteral
-  | GraphQLEnum
-  ? Validate<T, BaseEnvironment>
-  : never;
-
-/**
  * Validate a GraphQL schema.
  *
  * It just returns the input schema itself and is only used to validate in TypeScript that the
@@ -46,34 +23,14 @@ export type Schema<
  * @param schema The schema to validate.
  * @returns
  */
-export const schema = <
-  T extends
-    | {
-        Query?: FunctionCollection;
-        Mutation?: FunctionCollection;
-        Subscription?: FunctionCollection;
-      }
-    | TypeCollection,
->(
-  schema: Schema<T>,
-) => schema;
+export const schema = <T>(schema: ValidateSchema<T>) => schema;
 
 /**
  * Infer the type of a GraphQL schema in TypeScript.
  * @param _ The schema to infer.
  * @returns
  */
-export const infer = <
-  $ extends
-    | {
-        Query?: FunctionCollection;
-        Mutation?: FunctionCollection;
-        Subscription?: FunctionCollection;
-      }
-    | TypeCollection,
->(
-  _: $,
-) => {
+export const infer = <$>(_: $) => {
   const createInfiniteProxy = <T extends object>() =>
     new Proxy({} as T, {
       get: (): any => createInfiniteProxy(),

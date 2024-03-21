@@ -1,56 +1,12 @@
-import type {
-  Constructor,
-  Digit,
-  IsTopType,
-  IsUnknown,
-  Letter,
-  SimpleMerge,
-  Str,
-  StringKeyOf,
-} from './common';
-import type { GraphQLEnum, SimpleVariantOf } from './graphql-types';
+import type { Digit, IsTopType, IsUnknown, Letter, SimpleMerge, Str, StringKeyOf } from './common';
+import type { BaseEnvironment, GraphQLEnum, SimpleVariantOf } from './graphql-types';
 
 /*********************
  * Message functions *
  *********************/
 type WriteDuplicateAliasesMessage<TName extends string> = `Type '${TName}' is already defined`;
 
-type WriteBadDefinitionTypeMessage<TActual extends string> =
-  `Type definitions must be strings or objects (was ${TActual})`;
 type BadDefinitionType = number | bigint | boolean | symbol | null | undefined;
-type ObjectKindSet = Record<string, Constructor>;
-type DefaultObjectKindSet = {
-  readonly Array: ArrayConstructor;
-  readonly Date: DateConstructor;
-  readonly Error: ErrorConstructor;
-  readonly Function: FunctionConstructor;
-  readonly Map: MapConstructor;
-  readonly RegExp: RegExpConstructor;
-  readonly Set: SetConstructor;
-  readonly Object: ObjectConstructor;
-  readonly String: StringConstructor;
-  readonly Number: NumberConstructor;
-  readonly Boolean: BooleanConstructor;
-  readonly WeakMap: WeakMapConstructor;
-  readonly WeakSet: WeakSetConstructor;
-  readonly Promise: PromiseConstructor;
-};
-type ObjectKindOf<
-  TData,
-  TKinds extends ObjectKindSet = DefaultObjectKindSet,
-> = IsTopType<TData> extends true
-  ? undefined | keyof TKinds
-  : TData extends object
-  ? object extends TData
-    ? keyof TKinds
-    : {
-        [kind in keyof TKinds]: TKinds[kind] extends Constructor<TData>
-          ? kind
-          : TData extends (...args: any[]) => unknown
-          ? 'Function'
-          : 'Object';
-      }[keyof TKinds]
-  : undefined;
 type Domain =
   | 'string'
   | 'number'
@@ -83,8 +39,6 @@ type DomainOf<TData> = IsTopType<TData> extends true
 /*************
  * Functions *
  *************/
-type Evaluate<T> = { [P in keyof T]: T[P] };
-
 namespace Scanner {
   export interface State {
     unscanned: string;
@@ -136,7 +90,7 @@ namespace Scanner {
                 : { error: `Unexpected character '${C}'` }
               : TState['last'] extends ']'
               ? C extends '!'
-                ? NonNullable<unknown>
+                ? {}
                 : { error: `Unexpected character '${C}'` }
               : TState['last'] extends '!'
               ? [TState['hasUnclosedLeftBracket'], C] extends [true, ']']
@@ -182,29 +136,65 @@ type _ValidateString<TDef extends string, TState extends Scanner.State, $> = Sca
     : never
   : never;
 
-type ValidateString<TDef extends string, $> = TDef extends ''
-  ? SimpleVariantOf<StringKeyOf<$>> // Provide better intellisense for empty string
+type ValidateString<
+  TDef extends string,
+  $,
+  TFlags extends { isReturnType: boolean } = { isReturnType: false },
+> = TDef extends ''
+  ? // Provide better intellisense for empty string
+    | SimpleVariantOf<Exclude<StringKeyOf<$>, 'Query' | 'Mutation' | 'Subscription'>>
+      | (TFlags['isReturnType'] extends true ? 'void' : never)
+  : [TFlags['isReturnType'], TDef] extends [true, 'void']
+  ? 'void'
   : _ValidateString<TDef, Scanner.New<TDef>, $>;
 
-type ValidateDefinition<TDef, $> = TDef extends string
+export type ValidateOperations<TDef, $> = TDef extends BadDefinitionType | string
+  ? `Value of 'Query', 'Mutation' or 'Subscription' must be a plain object (was ${DomainOf<TDef>})`
+  : TDef extends readonly unknown[]
+  ? `Value of 'Query', 'Mutation' or 'Subscription' must be a plain object (was array)`
+  : { [P in keyof TDef]: ValidateOperation<TDef[P], $> };
+
+export type ValidateOperation<TDef, $> = TDef extends readonly ['=>', infer TOutput]
+  ? TOutput extends string
+    ? ['=>', ValidateString<TOutput, $, { isReturnType: true }>]
+    : ['=>', `Output type must be a string (was ${DomainOf<TOutput>})`]
+  : TDef extends readonly [infer TInput extends Record<PropertyKey, unknown>, '=>', infer TOutput]
+  ? TOutput extends BadDefinitionType | object
+    ? [TInput, '=>', `Output type must be a string (was ${DomainOf<TOutput>})`]
+    : [
+        { [P in keyof TInput]: ValidateDefinition<TInput[P], $, true> },
+        '=>',
+        ValidateString<TOutput & string, $, { isReturnType: true }>,
+      ]
+  : TDef extends readonly [infer TInput, '=>', infer TOutput]
+  ? [`Input type must be a plain object (was ${DomainOf<TInput>})`, '=>', TOutput]
+  : `Operation definition must be either ['=>', Output] or [Input, '=>', Output]`;
+
+export type ValidateDefinition<TDef, $, TNested = false> = TDef extends BadDefinitionType
+  ? TNested extends true
+    ? `Field definitions must be strings (was ${DomainOf<TDef>})`
+    : `Type definitions must be strings, enums or plain objects (was ${DomainOf<TDef>})`
+  : TDef extends readonly unknown[]
+  ? TNested extends true
+    ? `Field definitions must be strings (was array)`
+    : `Type definitions must be strings, enums or plain objects (was array)`
+  : TDef extends string
   ? ValidateString<TDef, $>
   : TDef extends GraphQLEnum
   ? TDef
-  : TDef extends BadDefinitionType
-  ? WriteBadDefinitionTypeMessage<
-      ObjectKindOf<TDef> extends string ? ObjectKindOf<TDef> : DomainOf<TDef>
-    >
   : IsUnknown<TDef> extends true
   ? StringKeyOf<$>
-  : TDef extends readonly [infer TVariables, 'void']
-  ? [ValidateDefinition<TVariables, $>, 'void']
-  : Evaluate<{ [P in keyof TDef]: ValidateDefinition<TDef[P], $> }>;
+  : TNested extends true
+  ? `Field definitions must be strings (was ${DomainOf<TDef>})`
+  : { [P in keyof TDef]: ValidateDefinition<TDef[P], $, true> };
 
 /**
- * Validate GraphQL type aliases.
+ * Validate GraphQL schema definition.
  */
-export type Validate<TAliases, TEnvironment> = Evaluate<{
+export type ValidateSchema<TAliases, TEnvironment = BaseEnvironment> = {
   [P in keyof TAliases]: P extends StringKeyOf<TEnvironment>
     ? WriteDuplicateAliasesMessage<P & string>
+    : P extends 'Query' | 'Mutation' | 'Subscription'
+    ? ValidateOperations<TAliases[P], TAliases & TEnvironment>
     : ValidateDefinition<TAliases[P], TAliases & TEnvironment>;
-}>;
+};

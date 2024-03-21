@@ -6,12 +6,14 @@ import { createAllSelector, parseSelector } from './selector';
 import { createTypeParser } from './type-parser';
 import { capitalize, omit, pick, requiredKeysCount } from './utils';
 
-// @ts-expect-error - `schema` is only used in doc
-import type { Schema, schema } from './types';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - `schema` is only used in doc
+import type { schema } from './types';
 import type { ObjectSelector } from './types/ast-builder';
 import type { ParseNodes } from './types/ast-parser';
 import type {
   Cast,
+  Get,
   QueryPromise,
   RequiredFields,
   RequiredFieldsCount,
@@ -19,16 +21,16 @@ import type {
   SubscriptionResponse,
   TrimEnd,
   TuplifyLiteralStringUnion,
-  WithDefault,
 } from './types/common';
 import type {
   FunctionCollection,
+  ParseInput,
   ParseReturnType,
   TypeCollection,
-  VariablesOf,
   WrapByType,
 } from './types/graphql-types';
 import type { QueryNode } from './types/query-node';
+import type { ValidateSchema } from './types/validator';
 import type { Client as WSClient, ClientOptions as WSClientOptions } from 'graphql-ws';
 
 type OperationResponse<
@@ -36,21 +38,17 @@ type OperationResponse<
   T,
 > = TMethod extends 'subscription' ? SubscriptionResponse<T> : QueryPromise<T>;
 
-type ByMixin<
-  TVariables extends Record<string, string>,
-  $,
-  R,
-> = RequiredFieldsCount<TVariables> extends 0
-  ? ByMixinHelper<TVariables, TuplifyLiteralStringUnion<keyof TVariables>, $, R>
-  : RequiredFieldsCount<TVariables> extends 1
-  ? ByMixinHelper<TVariables, [RequiredFields<TVariables>], $, R>
+type ByMixin<TInput extends Record<string, string>, $, R> = RequiredFieldsCount<TInput> extends 0
+  ? ByMixinHelper<TInput, TuplifyLiteralStringUnion<keyof TInput>, $, R>
+  : RequiredFieldsCount<TInput> extends 1
+  ? ByMixinHelper<TInput, [RequiredFields<TInput>], $, R>
   : Record<string, never>;
-type ByMixinHelper<TVariables, TKeys, $, R, Result = unknown> = TKeys extends readonly [
+type ByMixinHelper<TInput, TKeys, $, R, Result = unknown> = TKeys extends readonly [
   infer TKey,
   ...infer TRest extends any[],
 ]
   ? ByMixinHelper<
-      TVariables,
+      TInput,
       TRest,
       $,
       R,
@@ -59,9 +57,9 @@ type ByMixinHelper<TVariables, TKeys, $, R, Result = unknown> = TKeys extends re
           `by${Capitalize<TrimEnd<Cast<TKey, string>, '?'>>}`,
           (
             arg: NonNullable<
-              VariablesOf<TVariables, $>[Cast<
+              ParseInput<TInput, $>[Cast<
                 TrimEnd<Cast<TKey, string>, '?'>,
-                keyof VariablesOf<TVariables, $>
+                keyof ParseInput<TInput, $>
               >]
             >,
           ) => R
@@ -69,72 +67,81 @@ type ByMixinHelper<TVariables, TKeys, $, R, Result = unknown> = TKeys extends re
     >
   : Result;
 
+type NormalizeFunctionRepresentation<F> = F extends ['=>', infer TReturn]
+  ? [Record<string, never>, '=>', TReturn]
+  : F;
+
 type OperationFunction<
   TMethod extends 'query' | 'mutation' | 'subscription',
   $ extends TypeCollection,
   TOperations extends FunctionCollection,
 > = <ON extends keyof TOperations>(
   operationName: ON,
-) => ParseReturnType<TOperations[ON][1], $> extends {
-  result: infer R;
-  type: infer T;
-}
-  ? [R] extends [object]
-    ? VariablesOf<TOperations[ON][0], $> extends Record<string, never>
-      ? {
-          select: <const TQueryNodes extends readonly QueryNode[]>(
-            selector: ObjectSelector<R, TQueryNodes>,
-          ) => OperationResponse<
-            TMethod,
-            WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
-          >;
-        } & OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
-      : {
-          select: <const TQueryNodes extends readonly QueryNode[]>(
-            selector: ObjectSelector<R, TQueryNodes>,
-          ) => {
-            by: (
-              variables: VariablesOf<TOperations[ON][0], $>,
+) => NormalizeFunctionRepresentation<TOperations[ON]> extends [
+  infer TInput extends Record<string, string>,
+  '=>',
+  infer TReturn extends StringLiteral,
+]
+  ? ParseReturnType<TReturn, $> extends {
+      result: infer R;
+      type: infer T;
+    }
+    ? [R] extends [object]
+      ? ParseInput<TInput, $> extends Record<string, never>
+        ? {
+            select: <const TQueryNodes extends readonly QueryNode[]>(
+              selector: ObjectSelector<R, TQueryNodes>,
             ) => OperationResponse<
               TMethod,
               WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
             >;
+          } & OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
+        : {
+            select: <const TQueryNodes extends readonly QueryNode[]>(
+              selector: ObjectSelector<R, TQueryNodes>,
+            ) => {
+              by: (
+                input: ParseInput<TInput, $>,
+              ) => OperationResponse<
+                TMethod,
+                WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
+              >;
+            } & ByMixin<
+              TInput,
+              $,
+              OperationResponse<
+                TMethod,
+                WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
+              >
+            > &
+              (RequiredFieldsCount<TInput> extends 0
+                ? OperationResponse<
+                    TMethod,
+                    WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
+                  >
+                : unknown);
+            by: (
+              input: ParseInput<TInput, $>,
+            ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
           } & ByMixin<
-            TOperations[ON][0],
+            TInput,
             $,
-            OperationResponse<TMethod, WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>>
+            OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
           > &
-            (RequiredFieldsCount<TOperations[ON][0]> extends 0
-              ? OperationResponse<
-                  TMethod,
-                  WrapByType<ParseNodes<TQueryNodes>, Cast<T, StringLiteral>>
-                >
-              : unknown);
+            (RequiredFieldsCount<TInput> extends 0
+              ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
+              : unknown)
+      : TInput extends Record<string, never>
+      ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
+      : {
           by: (
-            variables: VariablesOf<TOperations[ON][0], $>,
+            input: ParseInput<TInput, $>,
           ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
-        } & ByMixin<
-          TOperations[ON][0],
-          $,
-          OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
-        > &
-          (RequiredFieldsCount<TOperations[ON][0]> extends 0
+        } & ByMixin<TInput, $, OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>> &
+          (RequiredFieldsCount<TInput> extends 0
             ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
             : unknown)
-    : TOperations[typeof operationName][0] extends Record<string, never>
-    ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
-    : {
-        by: (
-          variables: VariablesOf<TOperations[typeof operationName][0], $>,
-        ) => OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>;
-      } & ByMixin<
-        TOperations[ON][0],
-        $,
-        OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
-      > &
-        (RequiredFieldsCount<TOperations[ON][0]> extends 0
-          ? OperationResponse<TMethod, WrapByType<R, Cast<T, StringLiteral>>>
-          : unknown)
+    : never
   : never;
 
 type QueryFunction<
@@ -178,38 +185,40 @@ export type Client<
       { subscription: SubscriptionFunction<TSubscriptions, { [P in keyof $]: $[P] }> });
 
 const _createClient = <
-  T extends
-    | {
-        Query?: FunctionCollection;
-        Mutation?: FunctionCollection;
-        Subscription?: FunctionCollection;
-      }
-    | TypeCollection,
+  T,
   $ extends TypeCollection = Cast<Omit<T, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
   TQueries extends FunctionCollection = Cast<
-    WithDefault<T['Query'], Record<string, never>>,
+    Get<T, 'Query', Record<string, never>>,
     FunctionCollection
   >,
   TMutations extends FunctionCollection = Cast<
-    WithDefault<T['Mutation'], Record<string, never>>,
+    Get<T, 'Mutation', Record<string, never>>,
     FunctionCollection
   >,
   TSubscriptions extends FunctionCollection = Cast<
-    WithDefault<T['Subscription'], Record<string, never>>,
+    Get<T, 'Subscription', Record<string, never>>,
     FunctionCollection
   >,
 >(
   requestClient: RequestClient,
   wsClient: WSClient,
-  rawTypes: Schema<T>,
+  rawTypes: ValidateSchema<T>,
 ): Client<$, TQueries, TMutations, TSubscriptions> => {
   const cancelledPromises = new WeakSet<Promise<any>>();
 
-  const $ = omit(rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
+  const _rawTypes = rawTypes as
+    | TypeCollection
+    | {
+        Query?: FunctionCollection;
+        Mutation?: FunctionCollection;
+        Subscription?: FunctionCollection;
+      };
 
-  const queries = (rawTypes.Query ?? {}) as FunctionCollection;
-  const mutations = (rawTypes.Mutation ?? {}) as FunctionCollection;
-  const subscriptions = (rawTypes.Subscription ?? {}) as FunctionCollection;
+  const $ = omit(_rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
+
+  const queries = (_rawTypes.Query ?? {}) as FunctionCollection;
+  const mutations = (_rawTypes.Mutation ?? {}) as FunctionCollection;
+  const subscriptions = (_rawTypes.Subscription ?? {}) as FunctionCollection;
 
   const typeParser = createTypeParser($);
   const compileOperations = (
@@ -217,32 +226,33 @@ const _createClient = <
   ): Record<
     string,
     {
-      variableTypes: Record<string, string>;
+      inputType: Record<string, string>;
       returnType: string;
-      hasVariables: boolean;
+      hasInput: boolean;
       isReturnTypeSimple: boolean;
     }
   > =>
-    Object.entries(operations).reduce(
-      (prev, [operationName, [variablesType, returnType]]) => ({
+    Object.entries(operations).reduce((prev, [operationName, functionRepresentation]) => {
+      const [inputType, returnType] =
+        functionRepresentation.length === 3
+          ? [functionRepresentation[0], functionRepresentation[2]]
+          : [{}, functionRepresentation[1]];
+      return {
         ...prev,
         [operationName]: {
-          variableTypes: Object.entries(variablesType).reduce(
-            (prev, [variableName, variableType]) => ({
+          inputType: Object.entries(inputType).reduce(
+            (prev, [name, type]) => ({
               ...prev,
-              [variableName.replace(/\?$/, '')]: variableName.endsWith('?')
-                ? typeParser.nullable(variableType)
-                : variableType,
+              [name.replace(/\?$/, '')]: name.endsWith('?') ? typeParser.nullable(type) : type,
             }),
             {},
           ),
           returnType,
-          hasVariables: Object.keys(variablesType).length > 0,
+          hasInput: Object.keys(inputType).length > 0,
           isReturnTypeSimple: typeParser.isSimpleType(returnType),
         },
-      }),
-      {},
-    );
+      };
+    }, {});
 
   const preCompiledQueries = compileOperations(queries);
   const preCompiledMutations = compileOperations(mutations);
@@ -251,11 +261,11 @@ const _createClient = <
   const buildOperationResponse = <TMethod extends 'query' | 'mutation' | 'subscription'>(
     method: TMethod,
     operationName: string,
-    variableTypes: Record<string, string>,
-    variables: Record<string, any>,
+    inputType: Record<string, string>,
+    input: Record<string, any>,
     ast: readonly QueryNode[],
   ): TMethod extends 'subscription' ? SubscriptionResponse<any> : QueryPromise<any> => {
-    const queryString = buildQueryString(method, operationName, variableTypes, ast);
+    const queryString = buildQueryString(method, operationName, inputType, ast);
 
     if (method === 'subscription')
       return {
@@ -265,7 +275,7 @@ const _createClient = <
           onComplete?: () => void,
         ) =>
           wsClient.subscribe(
-            { query: queryString, variables },
+            { query: queryString, variables: input },
             {
               next: (value) => {
                 if (value.errors) {
@@ -284,18 +294,16 @@ const _createClient = <
             },
           ),
         toQueryString: () => queryString,
-        toRequestBody: () => ({ query: queryString, variables }),
+        toRequestBody: () => ({ query: queryString, variables: input }),
       } as any;
 
     const result: any = Promise.resolve(null).then(() => {
       if (cancelledPromises.has(result)) return;
 
-      return requestClient
-        .request(queryString, variables)
-        .then((data) => (data as any)[operationName]);
+      return requestClient.request(queryString, input).then((data) => (data as any)[operationName]);
     });
     result.toQueryString = () => queryString;
-    result.toRequestBody = () => ({ query: queryString, variables });
+    result.toRequestBody = () => ({ query: queryString, variables: input });
     return result;
   };
 
@@ -315,7 +323,7 @@ const _createClient = <
           : preCompiledSubscriptions[operationName];
 
       let result: any = {};
-      if (!operation.hasVariables) {
+      if (!operation.hasInput) {
         const ast = operation.isReturnTypeSimple
           ? []
           : parseSelector(createAllSelector(operation.returnType, $));
@@ -324,15 +332,17 @@ const _createClient = <
         if (operation.isReturnTypeSimple) return result;
       }
 
-      if (operation.hasVariables) {
-        if (requiredKeysCount(rawOperation[0]) === 0) {
+      const inputType = rawOperation.length === 3 ? rawOperation[0] : {};
+
+      if (operation.hasInput) {
+        if (requiredKeysCount(inputType) === 0) {
           const ast = operation.isReturnTypeSimple
             ? []
             : parseSelector(createAllSelector(operation.returnType, $));
           result = buildOperationResponse(method, operationName, {}, {}, ast);
         }
 
-        result.by = (variables: any) => {
+        result.by = (input: any) => {
           cancelledPromises.add(result);
           const ast = operation.isReturnTypeSimple
             ? []
@@ -340,21 +350,19 @@ const _createClient = <
           return buildOperationResponse(
             method,
             operationName,
-            pick(operation.variableTypes, ...Object.keys(variables)),
-            variables,
+            pick(operation.inputType, ...Object.keys(input)),
+            input,
             ast,
           );
         };
 
-        if (requiredKeysCount(rawOperation[0]) === 1) {
-          const variableName = Object.keys(operation.variableTypes)[0];
-          result[`by${capitalize(variableName)}`] = (arg: any) =>
-            result.by({ [variableName]: arg });
+        if (requiredKeysCount(inputType) === 1) {
+          const name = Object.keys(operation.inputType)[0];
+          result[`by${capitalize(name)}`] = (arg: any) => result.by({ [name]: arg });
         }
-        if (requiredKeysCount(rawOperation[0]) === 0) {
-          for (const variableName of Object.keys(operation.variableTypes)) {
-            result[`by${capitalize(variableName)}`] = (arg: any) =>
-              result.by({ [variableName]: arg });
+        if (requiredKeysCount(inputType) === 0) {
+          for (const name of Object.keys(operation.inputType)) {
+            result[`by${capitalize(name)}`] = (arg: any) => result.by({ [name]: arg });
           }
         }
 
@@ -362,13 +370,13 @@ const _createClient = <
       }
 
       result.select = (selector: any) => {
-        if (!operation.hasVariables) {
+        if (!operation.hasInput) {
           cancelledPromises.add(result);
           const ast = parseSelector(selector);
           return buildOperationResponse(method, operationName, {}, {}, ast);
         }
 
-        if (requiredKeysCount(rawOperation[0]) === 0) {
+        if (requiredKeysCount(inputType) === 0) {
           cancelledPromises.add(result);
           const by = result.by;
           const select = result.select;
@@ -379,27 +387,26 @@ const _createClient = <
         }
 
         const res: any = {
-          by: (variables: any) => {
+          by: (input: any) => {
             cancelledPromises.add(result);
             const ast = parseSelector(selector);
             return buildOperationResponse(
               method,
               operationName,
-              pick(operation.variableTypes, ...Object.keys(variables)),
-              variables,
+              pick(operation.inputType, ...Object.keys(input)),
+              input,
               ast,
             );
           },
         };
 
-        if (requiredKeysCount(rawOperation[0]) === 1) {
-          const variableName = Object.keys(operation.variableTypes)[0];
-          res[`by${capitalize(variableName)}`] = (arg: any) => res.by({ [variableName]: arg });
+        if (requiredKeysCount(inputType) === 1) {
+          const name = Object.keys(operation.inputType)[0];
+          res[`by${capitalize(name)}`] = (arg: any) => res.by({ [name]: arg });
         }
-        if (requiredKeysCount(rawOperation[0]) === 0) {
-          for (const variableName of Object.keys(operation.variableTypes)) {
-            res[`by${capitalize(variableName)}`] = (arg: any) => res.by({ [variableName]: arg });
-          }
+        if (requiredKeysCount(inputType) === 0) {
+          for (const name of Object.keys(operation.inputType))
+            res[`by${capitalize(name)}`] = (arg: any) => res.by({ [name]: arg });
         }
 
         return res;
@@ -448,60 +455,48 @@ export const createClient = (url: string, options?: RequestClient['requestConfig
      * @returns
      */
     withSchema: <
-      T extends
-        | {
-            Query?: FunctionCollection;
-            Mutation?: FunctionCollection;
-            Subscription?: FunctionCollection;
-          }
-        | TypeCollection,
+      T,
       $ extends TypeCollection = Cast<
         Omit<T, 'Query' | 'Mutation' | 'Subscription'>,
         TypeCollection
       >,
       TQueries extends FunctionCollection = Cast<
-        WithDefault<T['Query'], Record<string, never>>,
+        Get<T, 'Query', Record<string, never>>,
         FunctionCollection
       >,
       TMutations extends FunctionCollection = Cast<
-        WithDefault<T['Mutation'], Record<string, never>>,
+        Get<T, 'Mutation', Record<string, never>>,
         FunctionCollection
       >,
       TSubscriptions extends FunctionCollection = Cast<
-        WithDefault<T['Subscription'], Record<string, never>>,
+        Get<T, 'Subscription', Record<string, never>>,
         FunctionCollection
       >,
     >(
-      types: Schema<T>,
+      types: ValidateSchema<T>,
     ): Client<$, TQueries, TMutations, TSubscriptions> => {
       const requestClient = new RequestClient(url, options);
       const wsClient = createWSClient(wsOptions);
-      return _createClient(requestClient, wsClient, types) as never;
+      return _createClient(requestClient, wsClient, types);
     },
   }),
 
   withSchema: <
-    T extends
-      | {
-          Query?: FunctionCollection;
-          Mutation?: FunctionCollection;
-          Subscription?: FunctionCollection;
-        }
-      | TypeCollection,
+    T,
     $ extends TypeCollection = Cast<Omit<T, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
     TQueries extends FunctionCollection = Cast<
-      WithDefault<T['Query'], Record<string, never>>,
+      Get<T, 'Query', Record<string, never>>,
       FunctionCollection
     >,
     TMutations extends FunctionCollection = Cast<
-      WithDefault<T['Mutation'], Record<string, never>>,
+      Get<T, 'Mutation', Record<string, never>>,
       FunctionCollection
     >,
   >(
-    types: Schema<T>,
+    types: ValidateSchema<T>,
   ): Client<$, TQueries, TMutations> => {
     const requestClient = new RequestClient(url, options);
-    return _createClient(requestClient, null as never, types) as never;
+    return _createClient(requestClient, null as never, types);
   },
 });
 
@@ -518,7 +513,7 @@ export type InferClientFromSchema<
     | TypeCollection,
 > = Client<
   Cast<Omit<TSchema, 'Query' | 'Mutation' | 'Subscription'>, TypeCollection>,
-  Cast<WithDefault<TSchema['Query'], Record<string, never>>, FunctionCollection>,
-  Cast<WithDefault<TSchema['Mutation'], Record<string, never>>, FunctionCollection>,
-  Cast<WithDefault<TSchema['Subscription'], Record<string, never>>, FunctionCollection>
+  Cast<Get<TSchema, 'Query', Record<string, never>>, FunctionCollection>,
+  Cast<Get<TSchema, 'Mutation', Record<string, never>>, FunctionCollection>,
+  Cast<Get<TSchema, 'Subscription', Record<string, never>>, FunctionCollection>
 >;

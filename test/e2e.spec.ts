@@ -112,17 +112,17 @@ describe('client', () => {
     },
 
     Query: {
-      _: [{}, 'Int'],
-      post: [{ id: 'ID!' }, 'Post'],
-      user: [{ id: 'ID!' }, 'User'],
-      posts: [{ 'options?': 'PageQueryOptions!' }, 'PostsPage'],
+      _: ['=>', 'Int'],
+      post: [{ id: 'ID!' }, '=>', 'Post'],
+      user: [{ id: 'ID!' }, '=>', 'User'],
+      posts: [{ 'options?': 'PageQueryOptions!' }, '=>', 'PostsPage'],
     },
 
     Mutation: {
-      _: [{}, 'Int'],
-      createPost: [{ input: 'CreatePostInput!' }, 'Post'],
-      updatePost: [{ id: 'ID!', input: 'UpdatePostInput!' }, 'Post'],
-      deletePost: [{ id: 'ID!' }, 'Boolean'],
+      _: ['=>', 'Int'],
+      createPost: [{ input: 'CreatePostInput!' }, '=>', 'Post'],
+      updatePost: [{ id: 'ID!', input: 'UpdatePostInput!' }, '=>', 'Post'],
+      deletePost: [{ id: 'ID!' }, '=>', 'Boolean'],
     },
   });
 
@@ -180,10 +180,7 @@ describe('client', () => {
             id: '1',
             title: 'sunt aut facere repellat provident occaecati excepturi optio reprehenderit',
           },
-          {
-            id: '2',
-            title: 'qui est esse',
-          },
+          { id: '2', title: 'qui est esse' },
           {
             id: '3',
             title: 'ea molestias quasi exercitationem repellat qui ipsa sit aut',

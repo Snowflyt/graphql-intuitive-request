@@ -29,8 +29,8 @@ const { query } = createClient('https://example.com/graphql').withSchema({
   PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
 
   Query: {
-    users: [{}, '[User!]!'],
-    post: [{ id: 'Int!' }, 'Post'],
+    users: ['=>', '[User!]!'],
+    post: [{ id: 'Int!' }, '=>', 'Post'],
   },
 });
 
@@ -77,7 +77,7 @@ const post = await query('post')
   .byId(1);
 ```
 
-As you can see, the return type of the query is inferred as
+As you can see, the return type of the “users” query is inferred as
 
 ```typescript
 Array<{
@@ -101,8 +101,10 @@ The syntax is almost the same as the one used in GraphQL:
 - Types are nullable by default, and you can use `!` to indicate that a type is non-nullable.
 - Wrapping a type in `[]` indicates that the type is a list.
 - You can use `enumOf` to define an enum type, and it will be inferred as a union type of string literals. Enum type declarations must be placed on the top level of the `withSchema` function—Just like in a GraphQL schema, enum types cannot be defined inside other types.
-- Queries, mutations and subscriptions are defined specially in `Query`, `Mutation` and `Subscription` fields of the `withSchema` function. The value of each field should be an array of 2 elements, the first element is an object representing the input type of the operation (empty object `{}` if there's no input), and the second element is the return type of the operation.
-- Especially, you can use `'void'` as the return type of a mutation if it does not return anything.
+- Queries, mutations and subscriptions are defined specially in `Query`, `Mutation` and `Subscription` fields of the `withSchema` function. The value of each field should be either of the following:
+  - `['=>', 'ReturnType']` if the operation does not accept any input.
+  - `[{ /* ... */ }, '=>', 'ReturnType']` if the operation accepts an input. In this case, the first element is an object representing the input type of the operation, and the third element is the return type of the operation.
+  - Especially, you can use `'void'` as the return type of a mutation if it does not return anything (e.g. A mutation that always returns `null` and you don't care about the return value).
 
 You may notice that we actually define a circular reference between `User` and `Post` in the `withSchema` function. This is not a problem, because graphql-intuitive-request is smart enough to handle this case. However, when dealing with circular references, you should be careful to avoid infinite loops—graphql-intuitive-request supports selecting all fields of an object recursively (as will be shown later), and infinite loops may occur when selecting all fields of an object with circular references.
 
@@ -142,14 +144,14 @@ npm install graphql-intuitive-request
 const { query, mutation } = createClient('https://example.com/graphql').withSchema({
   /* ... */
   Query: {
-    user: [{ id: 'Int!' }, 'User!'],
-    users: [{}, '[User!]!'],
+    user: [{ id: 'Int!' }, '=>', 'User!'],
+    users: ['=>', '[User!]!'],
     /* ... */
   },
   Mutation: {
-    login: [{ input: 'LoginInput!' }, 'LoginOutput!'],
-    logout: [{}, 'Boolean!'],
-    removeUser: [{ id: 'Int!' }, 'Boolean!'],
+    login: [{ input: 'LoginInput!' }, '=>', 'LoginOutput!'],
+    logout: ['=>', 'Boolean!'],
+    removeUser: [{ id: 'Int!' }, '=>', 'Boolean!'],
     /* ... */
   },
 });
@@ -158,15 +160,15 @@ const { query, mutation } = createClient('https://example.com/graphql').withSche
 const user = await query('user') // user :: { id: number; name: string; }
   .select((user) => [user.id, user.name])
   .by({ id: 1 });
-// Abbreviated syntax when the count of non-optional variables is 1
-// Here, the only non-optional variable is `id`, so we can use `byId` instead of `byId`
+// Abbreviated syntax when the count of non-optional input fields is 1
+// Here, the only non-optional input field is `id`, so we can use `byId` instead of `by({ id: /* ... */ })`
 // In other cases, it may be `byUsername`, `byInput`, `byOptions`, etc.
 const user = await query('user') // user :: { id: number; name: string; }
   .select((user) => [user.id, user.name])
   .byId(1);
 // You can omit `select` if you want to select all fields (it would also select nested ones recursively)
 const user = await query('user').byId(1); // user :: User
-// The same is to `users`, you can see that it does not accept any variables, so there's no `by` method
+// The same is to `users`, you can see that it accepts no input, so there's no `by` method
 const users = await query('users').select((user) => [user.id, user.name]); // users :: Array<{ id: number; name: string; }>
 // Similarly, you can omit `select` if you want to select all fields
 const users = await query('users'); // users :: User[]
@@ -180,7 +182,7 @@ const { mutation, subscription } = createClient('https://example.com/graphql')
   .withSchema({
     /* ... */
     Subscription: {
-      commentAdded: [{ postId: 'Int!' }, 'Comment!'],
+      commentAdded: [{ postId: 'Int!' }, '=>', 'Comment!'],
     },
   });
 
@@ -283,8 +285,8 @@ const $ = schema({
   PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
 
   Query: {
-    users: [{}, '[User!]!'],
-    post: [{ id: 'Int!' }, 'Post'],
+    users: ['=>', '[User!]!'],
+    post: [{ id: 'Int!' }, '=>', 'Post'],
   },
 });
 
@@ -399,7 +401,7 @@ import {
 } from 'graphql-intuitive-request';
 
 const queryUserString = queryString('user')
-  .variables({ id: 'ID!' })
+  .input({ id: 'ID!' })
   .select<User>((user) => [user.id, user.name])
   .build();
 ```

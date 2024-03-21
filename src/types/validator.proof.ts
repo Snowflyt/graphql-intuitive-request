@@ -3,9 +3,9 @@ import { describe, equal, error, expect, it } from 'typroof';
 import { enumOf } from '../types';
 
 import type { BaseEnvironment, GraphQLEnum } from './graphql-types';
-import type { Validate } from './validator';
+import type { ValidateSchema } from './validator';
 
-declare const validate: <T>(aliases: Validate<T, BaseEnvironment>) => Validate<T, BaseEnvironment>;
+declare const validate: <T>(aliases: ValidateSchema<T>) => ValidateSchema<T>;
 
 describe('Validate', () => {
   it('should validate object representation of GraphQL type aliases', () => {
@@ -24,7 +24,7 @@ describe('Validate', () => {
       };
       OperatorKindEnum: GraphQLEnum<'GTE' | 'LTE' | 'NE' | 'LIKE'>;
     };
-    expect<Validate<ToValidate, BaseEnvironment>>().to(equal<ToValidate>);
+    expect<ValidateSchema<ToValidate, BaseEnvironment>>().to(equal<ToValidate>);
 
     expect(
       validate({

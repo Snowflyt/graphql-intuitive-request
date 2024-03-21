@@ -16,21 +16,21 @@ const buildQueryAst = (ast: readonly QueryNode[], indent: number = 4): string =>
     .join('\n')}\n${' '.repeat(indent - 2)}}`;
 
 export const buildQueryString = (
-  operationType: 'query' | 'mutation' | 'subscription',
-  operationName: string,
-  variableTypes: Record<string, string>,
+  type: 'query' | 'mutation' | 'subscription',
+  name: string,
+  inputType: Record<string, string>,
   ast: readonly QueryNode[],
 ) => {
-  const definitionHeader = `${operationType} ${operationName}${
-    Object.keys(variableTypes).length > 0
-      ? `(${Object.entries(variableTypes)
+  const definitionHeader = `${type} ${name}${
+    Object.keys(inputType).length > 0
+      ? `(${Object.entries(inputType)
           .map(([key, value]) => `$${key}: ${value}`)
           .join(', ')})`
       : ''
   } {`;
-  const operationHeader = `${operationName}${
-    Object.keys(variableTypes).length > 0
-      ? `(${Object.keys(variableTypes)
+  const operationHeader = `${name}${
+    Object.keys(inputType).length > 0
+      ? `(${Object.keys(inputType)
           .map((key) => `${key}: $${key}`)
           .join(', ')})`
       : ''
@@ -39,25 +39,24 @@ export const buildQueryString = (
   return `${definitionHeader}\n  ${operationHeader}${operationBody}\n}`;
 };
 
-const operationString =
-  (method: 'query' | 'mutation' | 'subscription') => (operationName: string) => ({
-    variables: (variableTypes: Record<string, string>) => ({
-      select: <T extends object = any>(selector: ObjectSelector<T, readonly QueryNode[]>) => ({
-        build: () => {
-          const ast = parseSelector(selector);
-          return buildQueryString(method, operationName, variableTypes, ast);
-        },
-      }),
-      build: () => buildQueryString(method, operationName, variableTypes, []),
-    }),
+const operationString = (type: 'query' | 'mutation' | 'subscription') => (name: string) => ({
+  input: (inputType: Record<string, string>) => ({
     select: <T extends object = any>(selector: ObjectSelector<T, readonly QueryNode[]>) => ({
       build: () => {
         const ast = parseSelector(selector);
-        return buildQueryString(method, operationName, {}, ast);
+        return buildQueryString(type, name, inputType, ast);
       },
     }),
-    build: () => buildQueryString('query', operationName, {}, []),
-  });
+    build: () => buildQueryString(type, name, inputType, []),
+  }),
+  select: <T extends object = any>(selector: ObjectSelector<T, readonly QueryNode[]>) => ({
+    build: () => {
+      const ast = parseSelector(selector);
+      return buildQueryString(type, name, {}, ast);
+    },
+  }),
+  build: () => buildQueryString('query', name, {}, []),
+});
 
 /**
  * Create a GraphQL query string for a query operation.

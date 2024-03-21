@@ -106,14 +106,19 @@ export type Extends<T, U> = [T] extends [U] ? true : false;
  * Utility types *
  *****************/
 /**
+ * Get the value of a key from an object type, or `never` if the key does not exist.
+ */
+export type UnsafeGet<T, K> = K extends keyof T ? T[K] : never;
+
+/**
+ * Get the value of a key from an object type, or a default value if the key does not exist.
+ */
+export type Get<T, K, D> = K extends keyof T ? T[K] : D;
+
+/**
  * Get only the string keys of an object type.
  */
 export type StringKeyOf<O> = keyof O & string;
-
-/**
- * Get constructor type of an object.
- */
-export type Constructor<TInstance = unknown> = new (...args: any[]) => TInstance;
 
 /**
  * Exclude never values from an object.
@@ -162,17 +167,17 @@ export type RequiredFieldsOnly<T> = {
 export type ObjectLength<T> = TuplifyLiteralStringUnion<keyof T>['length'];
 
 /**
- * Get keys not ends with `?` from an object.
+ * Get keys of entries that value ends with `!` and key does not end with `?` from an object.
  */
-export type RequiredFields<T extends Record<string, string>> = keyof {
-  [K in keyof T as K extends `${any}?` ? never : T[K] extends `${any}!` ? K : never]: void;
+export type RequiredFields<I> = keyof {
+  [K in keyof I as K extends `${string}?` ? never : I[K] extends `${string}!` ? K : never]: void;
 };
 
 /**
- * Get the count of keys not ends with `?` from an object.
+ * Get the count of entries that value ends with `!` and key does not end with `?` from an object.
  */
-export type RequiredFieldsCount<T extends Record<string, string>> = ObjectLength<{
-  [K in keyof T as K extends `${any}?` ? never : T[K] extends `${any}!` ? K : never]: void;
+export type RequiredFieldsCount<I> = ObjectLength<{
+  [K in keyof I as K extends `${string}?` ? never : I[K] extends `${string}!` ? K : never]: void;
 }>;
 
 /**
@@ -186,11 +191,6 @@ export type TrimEnd<T extends string, U extends string> = T extends `${infer S}$
  * Get the value type of an object.
  */
 export type ValueOf<T> = T[keyof T];
-
-/**
- * Assign a default type for an optional type.
- */
-export type WithDefault<T, D> = unknown extends T ? D : T;
 
 /**
  * Force a type to be a specific type.

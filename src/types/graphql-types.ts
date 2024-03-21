@@ -33,7 +33,9 @@ export interface BaseEnvironment {
 
 export type TypeRepresentation = Record<string, StringLiteral> | StringLiteral;
 export type TypeCollection = Record<string, TypeRepresentation | GraphQLEnum>;
-export type FunctionRepresentation = [Record<string, StringLiteral>, StringLiteral];
+export type FunctionRepresentation =
+  | ['=>', StringLiteral]
+  | [Record<string, StringLiteral>, '=>', StringLiteral];
 export type FunctionCollection = Record<string, FunctionRepresentation>;
 
 export type ParseReturnType<T extends StringLiteral, $ extends TypeCollection> = T extends 'void'
@@ -69,8 +71,8 @@ export type WrapByType<
   ? T | null
   : T;
 
-export type VariablesOf<TVariables, $> = Parse<
-  TVariables,
+export type ParseInput<Fields, $> = Parse<
+  Fields,
   $ & BaseEnvironment,
   { treatNullableTypeAsOptional: true }
 >;

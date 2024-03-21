@@ -20,8 +20,8 @@ let $: {
   PostStatus: GraphQLEnum<'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>;
 
   Query: {
-    users: [NonNullable<unknown>, '[User!]!'];
-    post: [{ id: 'Int!' }, 'Post'];
+    users: ['=>', '[User!]!'];
+    post: [{ id: 'Int!' }, '=>', 'Post'];
   };
 };
 
@@ -43,8 +43,8 @@ describe('schema', () => {
       PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
 
       Query: {
-        users: [{}, '[User!]!'],
-        post: [{ id: 'Int!' }, 'Post'],
+        users: ['=>', '[User!]!'],
+        post: [{ id: 'Int!' }, '=>', 'Post'],
       },
     });
     expect(_).to(equal<typeof $>);

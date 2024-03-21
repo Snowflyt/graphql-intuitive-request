@@ -15,7 +15,7 @@ describe('queryString', () => {
     `;
 
     const query = queryString('user')
-      .variables({ id: 'ID!' })
+      .input({ id: 'ID!' })
       .select<{ id: string; username: string }>((user) => [user.id, user.username])
       .build();
     expect(query).toBe(trimIndent(expectQuery));
@@ -44,7 +44,7 @@ describe('queryString', () => {
       }
     `;
 
-    const query = queryString('removeUser').variables({ id: 'ID!' }).build();
+    const query = queryString('removeUser').input({ id: 'ID!' }).build();
     expect(query).toBe(trimIndent(expectQuery));
   });
 

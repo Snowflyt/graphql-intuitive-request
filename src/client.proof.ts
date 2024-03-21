@@ -92,39 +92,39 @@ const $ = schema({
   },
 
   Query: {
-    me: [{}, 'UserDto!'],
-    user: [{ id: 'Int!' }, 'UserDto!'],
-    users: [{}, '[UserDto!]!'],
-    role: [{ id: 'Int!' }, 'RoleDto!'],
-    roles: [{}, '[RoleDto!]!'],
-    permission: [{ id: 'Int!' }, 'PermissionDto!'],
-    permissions: [{}, '[PermissionDto!]!'],
+    me: ['=>', 'UserDto!'],
+    user: [{ id: 'Int!' }, '=>', 'UserDto!'],
+    users: ['=>', '[UserDto!]!'],
+    role: [{ id: 'Int!' }, '=>', 'RoleDto!'],
+    roles: ['=>', '[RoleDto!]!'],
+    permission: [{ id: 'Int!' }, '=>', 'PermissionDto!'],
+    permissions: ['=>', '[PermissionDto!]!'],
 
-    chatroom: [{ id: 'Int!' }, 'Chatroom!'],
-    chatrooms: [{}, '[Chatroom!]!'],
+    chatroom: [{ id: 'Int!' }, '=>', 'Chatroom!'],
+    chatrooms: ['=>', '[Chatroom!]!'],
   },
 
   Mutation: {
-    login: [{ input: 'LoginInput!' }, 'LoginOutput!'],
+    login: [{ input: 'LoginInput!' }, '=>', 'LoginOutput!'],
 
-    createUser: [{ input: 'CreateUserInput!' }, 'UserDto!'],
-    updateUser: [{ id: 'Int!', input: 'UpdateUserInput!' }, 'UserDto!'],
-    removeUser: [{ id: 'Int!' }, 'UserDto!'],
-    createRole: [{ input: 'CreateRoleInput!' }, 'RoleDto!'],
-    updateRole: [{ id: 'Int!', input: 'UpdateRoleInput!' }, 'RoleDto!'],
-    removeRole: [{ id: 'Int!' }, 'RoleDto!'],
-    createPermission: [{ input: 'CreatePermissionInput!' }, 'PermissionDto!'],
-    updatePermission: [{ id: 'Int!', input: 'UpdatePermissionInput!' }, 'PermissionDto!'],
-    removePermission: [{ id: 'Int!' }, 'PermissionDto!'],
+    createUser: [{ input: 'CreateUserInput!' }, '=>', 'UserDto!'],
+    updateUser: [{ id: 'Int!', input: 'UpdateUserInput!' }, '=>', 'UserDto!'],
+    removeUser: [{ id: 'Int!' }, '=>', 'UserDto!'],
+    createRole: [{ input: 'CreateRoleInput!' }, '=>', 'RoleDto!'],
+    updateRole: [{ id: 'Int!', input: 'UpdateRoleInput!' }, '=>', 'RoleDto!'],
+    removeRole: [{ id: 'Int!' }, '=>', 'RoleDto!'],
+    createPermission: [{ input: 'CreatePermissionInput!' }, '=>', 'PermissionDto!'],
+    updatePermission: [{ id: 'Int!', input: 'UpdatePermissionInput!' }, '=>', 'PermissionDto!'],
+    removePermission: [{ id: 'Int!' }, '=>', 'PermissionDto!'],
 
-    createChatroom: [{ input: 'CreateChatroomInput!' }, 'Chatroom!'],
-    joinChatroom: [{ id: 'Int!' }, 'Chatroom!'],
-    quitChatroom: [{ id: 'Int!' }, 'Chatroom!'],
-    addMessage: [{ chatroomId: 'Int!', input: 'CreateMessageInput!' }, 'Message!'],
+    createChatroom: [{ input: 'CreateChatroomInput!' }, '=>', 'Chatroom!'],
+    joinChatroom: [{ id: 'Int!' }, '=>', 'Chatroom!'],
+    quitChatroom: [{ id: 'Int!' }, '=>', 'Chatroom!'],
+    addMessage: [{ chatroomId: 'Int!', input: 'CreateMessageInput!' }, '=>', 'Message!'],
   },
 
   Subscription: {
-    messageAdded: [{ chatroomId: 'Int!' }, 'Message!'],
+    messageAdded: [{ chatroomId: 'Int!' }, '=>', 'Message!'],
   },
 });
 

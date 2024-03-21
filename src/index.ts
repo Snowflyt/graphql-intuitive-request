@@ -8,5 +8,10 @@ export { infer, enumOf, schema } from './types';
  */
 export { ClientError } from 'graphql-request';
 
-export type { Schema } from './types';
+export type {
+  ValidateDefinition,
+  ValidateOperation,
+  ValidateOperations,
+  ValidateSchema,
+} from './types/validator';
 export type { Client, ClientOptions, InferClientFromSchema, WSOptions } from './client';

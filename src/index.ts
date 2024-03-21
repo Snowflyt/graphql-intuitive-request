@@ -6,7 +6,7 @@ export { infer, enumOf, schema } from './types';
 /**
  * Error thrown when the client receives an error from the server.
  */
-export type ClientError = import('graphql-request').ClientError;
+export { ClientError } from 'graphql-request';
 
 export type { Schema } from './types';
 export type { Client, ClientOptions, InferClientFromSchema, WSOptions } from './client';

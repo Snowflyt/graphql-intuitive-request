@@ -6,6 +6,7 @@ import type { ObjectSelector } from './ast-builder';
 import type { ParseNodes } from './ast-parser';
 import type {
   Obj,
+  Or,
   QueryPromise,
   RequiredFields,
   RequiredFieldsCount,
@@ -70,15 +71,35 @@ export type OperationFunction<
   TMethod extends 'query' | 'mutation' | 'subscription',
   $,
   TOperations,
-> = <N extends keyof TOperations>(
-  name: N,
-) => _NormalizeFunctionRepresentation<TOperations[N]> extends [
-  infer TInputDef extends Record<string, string>,
-  '=>',
-  infer TReturnDef extends string,
-]
-  ? _OperationFunction<TMethod, $, TInputDef, TReturnDef>
-  : never;
+> = {
+  <N extends keyof TOperations>(name: N): _NormalizeFunctionRepresentation<TOperations[N]> extends [
+    infer TInputDef extends Record<string, string>,
+    '=>',
+    infer TReturnDef extends string,
+  ]
+    ? _OperationFunction<TMethod, $, TInputDef, TReturnDef, { isInputPassed: false }>
+    : never;
+  // For operations with input, users can either pass the input as the 2nd argument instead of using `.by`
+  <N extends _NameOfOperationsWithInput<TOperations>>(
+    name: N,
+    input: TOperations[N] extends [infer TInputDef, '=>', string]
+      ? ParseInputDef<TInputDef, $>
+      : never,
+  ): _NormalizeFunctionRepresentation<TOperations[N]> extends [
+    infer TInputDef extends Record<string, string>,
+    '=>',
+    infer TReturnDef extends string,
+  ]
+    ? _OperationFunction<TMethod, $, TInputDef, TReturnDef, { isInputPassed: true }>
+    : never;
+};
+type _NameOfOperationsWithInput<TOperations> = keyof {
+  [P in keyof TOperations as TOperations[P] extends [infer TInputDef, '=>', string]
+    ? Obj.IsEmpty<TInputDef> extends true
+      ? never
+      : P
+    : never]: P;
+};
 type _NormalizeFunctionRepresentation<F> = F extends ['=>', infer TReturn]
   ? [{}, '=>', TReturn]
   : F;
@@ -91,6 +112,7 @@ type _OperationFunction<
   $,
   TInputDef extends Record<string, string>,
   TReturnDef extends string,
+  TOptions extends { isInputPassed: boolean },
 > = ParseDef<TReturnDef, $ & BaseEnvironment, { acceptVoid: true }> extends {
   type: infer TReturn;
   coreType: infer TCoreReturn;
@@ -99,7 +121,7 @@ type _OperationFunction<
   ? // For operations returning an object, `.select` can be used to select fields from the response
     [TCoreReturn] extends [object]
     ? // For operations without input,
-      Obj.IsEmpty<ParseInputDef<TInputDef, $>> extends true
+      Or<Obj.IsEmpty<ParseInputDef<TInputDef, $>>, TOptions['isInputPassed']> extends true
       ? // users can either just await it to get the response (automatically select all fields, e.g. `await query('users')`), ...
         _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>> & {
           // ... or use `.select` to manually select fields from the response (e.g. `await query('users').select(...)`)
@@ -146,7 +168,7 @@ type _OperationFunction<
           (RequiredFieldsCount<TInputDef> extends 0
             ? _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>>
             : unknown)
-    : Obj.IsEmpty<TInputDef> extends true
+    : Or<Obj.IsEmpty<TInputDef>, TOptions['isInputPassed']> extends true
     ? // For operations returning a scalar without input, just await it to get the response
       _OperationResponse<TMethod, TReturn>
     : // For operations returning a scalar with input, use `.by` or its abbreviated syntax to send the input and get the response

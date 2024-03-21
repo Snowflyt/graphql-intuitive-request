@@ -140,7 +140,7 @@ const _createClient = <
   };
 
   const buildOperationFunction =
-    (method: 'query' | 'mutation' | 'subscription') => (operationName: string) => {
+    (method: 'query' | 'mutation' | 'subscription') => (operationName: string, input?: any) => {
       const rawOperation =
         method === 'query'
           ? queries[operationName]
@@ -155,16 +155,25 @@ const _createClient = <
           : preCompiledSubscriptions[operationName];
 
       let result: any = {};
-      if (!operation.hasInput) {
+      if (!operation.hasInput || input !== undefined) {
         const ast = operation.isReturnTypeScalar
           ? []
           : parseSelector(createAllSelector(operation.returnType, $));
-        result = buildOperationResponse(method, operationName, {}, {}, ast);
+        result =
+          input === undefined
+            ? buildOperationResponse(method, operationName, {}, {}, ast)
+            : buildOperationResponse(
+                method,
+                operationName,
+                pick(operation.inputType, ...Object.keys(input)),
+                input,
+                ast,
+              );
 
         if (operation.isReturnTypeScalar) return result;
       }
 
-      if (operation.hasInput) {
+      if (operation.hasInput && input === undefined) {
         if (requiredKeysCount(rawOperation.inputType) === 0) {
           const ast = operation.isReturnTypeScalar
             ? []
@@ -200,10 +209,18 @@ const _createClient = <
       }
 
       result.select = (selector: any) => {
-        if (!operation.hasInput) {
+        if (!operation.hasInput || input !== undefined) {
           cancelledPromises.add(result);
           const ast = parseSelector(selector);
-          return buildOperationResponse(method, operationName, {}, {}, ast);
+          return input === undefined
+            ? buildOperationResponse(method, operationName, {}, {}, ast)
+            : buildOperationResponse(
+                method,
+                operationName,
+                pick(operation.inputType, ...Object.keys(input)),
+                input,
+                ast,
+              );
         }
 
         if (requiredKeysCount(rawOperation.inputType) === 0) {

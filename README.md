@@ -66,6 +66,14 @@ const allUsers = await query('users').select((user) => [
  *   coAuthors: Array<{ username: string }>;
  * } | null
  */
+const post = await query('post', { id: 1 }).select((post) => [
+  post.title,
+  post.status,
+  post.content,
+  post.author((author) => [author.username]),
+  post.coAuthors((author) => [author.username]),
+]);
+// ... or use `.by` method and its variants
 const post = await query('post')
   .select((post) => [
     post.title,
@@ -144,7 +152,7 @@ npm install graphql-intuitive-request
 const { query, mutation } = createClient('https://example.com/graphql').withSchema({
   /* ... */
   Query: {
-    user: [{ id: 'Int!' }, '=>', 'User!'],
+    user: [{ id: 'Int!' }, '=>', 'User'],
     users: ['=>', '[User!]!'],
     /* ... */
   },
@@ -157,24 +165,40 @@ const { query, mutation } = createClient('https://example.com/graphql').withSche
 });
 
 // The normal way to execute operations
-const user = await query('user') // user :: { id: number; name: string; }
+const user = await query('user')
+  //  ^?: { id: number; name: string; } | null
   .select((user) => [user.id, user.name])
   .by({ id: 1 });
 // Abbreviated syntax when the count of non-optional input fields is 1
 // Here, the only non-optional input field is `id`, so we can use `byId` instead of `by({ id: /* ... */ })`
 // In other cases, it may be `byUsername`, `byInput`, `byOptions`, etc.
-const user = await query('user') // user :: { id: number; name: string; }
+const user = await query('user')
+  //  ^?: { id: number; name: string; } | null
   .select((user) => [user.id, user.name])
   .byId(1);
+// Alternatively, you can use the 2nd argument to pass the input instead of using `by` or its variants
+const user = await query('user', { id: 1 }).select((user) => [user.id, user.name]);
+//    ^?: { id: number; name: string; } | null
 // You can omit `select` if you want to select all fields (it would also select nested ones recursively)
-const user = await query('user').byId(1); // user :: User
+const user = await query('user').by({ id: 1 });
+//    ^?: User | null
+const user = await query('user').byId(1);
+//    ^?: User | null
+const user = await query('user', { id: 1 });
+//    ^?: User | null
 // The same is to `users`, you can see that it accepts no input, so there's no `by` method
-const users = await query('users').select((user) => [user.id, user.name]); // users :: Array<{ id: number; name: string; }>
+const users = await query('users').select((user) => [user.id, user.name]);
+//    ^?: Array<{ id: number; name: string; }>
 // Similarly, you can omit `select` if you want to select all fields
-const users = await query('users'); // users :: User[]
+const users = await query('users');
+//    ^?: User[]
 // What about queries or mutations that do not return an object? As you can see, now there's no `select` method
-const isUserRemoved = await mutation('removeUser').byId(1); // isUserRemoved :: boolean
-const isLoggedOut = await mutation('logout'); // isLoggedOutSuccess :: boolean
+const isUserRemoved = await mutation('removeUser').byId(1);
+//    ^?: boolean
+const isUserRemoved = await mutation('removeUser', { id: 1 });
+//    ^?: boolean
+const isLoggedOut = await mutation('logout');
+//    ^?: boolean
 
 // Subscriptions are also supported, but only subscriptions using `graphql-ws` protocol are supported
 const { mutation, subscription } = createClient('https://example.com/graphql')
@@ -202,7 +226,7 @@ For more details, you can check [the relevant test file](./test/client.spec.ts).
 
 ### Support for subscriptions
 
-graphql-intuitive-request also supports GraphQL subscriptions. You can use `client.subscription` to create a subscription. The usage is similar to `client.query` and `client.mutation`.
+graphql-intuitive-request supports GraphQL subscriptions. You can use `client.subscription` to create a subscription. The usage is similar to `client.query` and `client.mutation`.
 
 Note that only subscriptions using `graphql-ws` protocol are supported. Due to the deprecated nature of `subscriptions-transport-ws`, we do not plan to support it in the future.
 
@@ -232,9 +256,10 @@ The parameters of `createClient().withWebSocketClient` are the same as the param
 Then you can use `client.subscription` to create a subscription.
 
 ```typescript
-const onCommentAddedSubscription = subscription('commentAdded')
-  .select((comment) => [comment.id, comment.content])
-  .byPostId(1);
+const onCommentAddedSubscription = subscription('commentAdded', { postId: 1 }).select((comment) => [
+  comment.id,
+  comment.content,
+]);
 
 const unsubscribe = onCommentAddedSubscription.subscribe((comment) => {
   console.log(comment.id, comment.content);
@@ -487,9 +512,7 @@ import { ClientError } from 'graphql-intuitive-request';
 import { query } from './client';
 
 try {
-  const user = await query('user')
-    .select((user) => [user.id, user.name])
-    .byId(1);
+  const user = await query('user', { id: 1 }).select((user) => [user.id, user.name]);
   console.log(user);
 } catch (error) {
   if (error instanceof ClientError) console.error(error.response.errors);

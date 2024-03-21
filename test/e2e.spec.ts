@@ -148,14 +148,12 @@ describe('client', () => {
   });
 
   it('should get a user', async () => {
-    const user = await query('user')
-      .select((user) => [
-        user.id,
-        user.username,
-        user.email,
-        user.address((address) => [address.geo((geo) => [geo.lat, geo.lng])]),
-      ])
-      .byId('1');
+    const user = await query('user', { id: '1' }).select((user) => [
+      user.id,
+      user.username,
+      user.email,
+      user.address((address) => [address.geo((geo) => [geo.lat, geo.lng])]),
+    ]);
     expect(user).toEqual({
       id: '1',
       username: 'Bret',

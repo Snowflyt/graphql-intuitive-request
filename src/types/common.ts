@@ -50,6 +50,9 @@ export type Equals<T, U> = (<G>() => G extends T ? 1 : 2) extends <G>() => G ext
   ? true
   : false;
 
+export type And<T, U> = T extends true ? (U extends true ? true : false) : false;
+export type Or<T, U> = T extends true ? true : U extends true ? true : false;
+
 /**
  * Judge whether a type is `any` or `unknown`.
  */

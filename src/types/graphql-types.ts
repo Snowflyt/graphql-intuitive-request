@@ -1,7 +1,14 @@
 import type { ParseDef } from './parser';
+import type { GraphQLScalarType } from 'graphql';
 
 export type GraphQLNonNull<T extends string> = `${T}!`;
 export type GraphQLList<T extends string> = `[${T}]`;
+
+export interface GraphQLScalar<T, U> {
+  __graphQLType: 'scalar';
+  parseValue: (value: T) => U;
+  serialize: (value: U) => T;
+}
 
 export interface GraphQLEnum<S extends string = string> {
   __graphQLType: 'enum';
@@ -39,7 +46,7 @@ export interface BaseEnvironment {
 }
 
 export type ObjectDefinition = Record<string, string | [Record<string, string>, string]>;
-export type ScalarDefinition = string;
+export type ScalarDefinition = string | GraphQLScalar<any, any> | GraphQLScalarType<any, any>;
 export type TypeDefinition = ObjectDefinition | ScalarDefinition | GraphQLEnum;
 export type TypeCollection = Record<string, TypeDefinition>;
 export type OperationDefinition = ['=>', string] | [Record<string, string>, '=>', string];

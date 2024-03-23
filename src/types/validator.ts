@@ -1,5 +1,5 @@
 import type { Digit, IsTopType, IsUnknown, Letter, SimpleMerge, Str, StringKeyOf } from './common';
-import type { BaseEnvironment, GraphQLEnum, SimpleVariantOf } from './graphql-types';
+import type { BaseEnvironment, GraphQLEnum, GraphQLScalar, SimpleVariantOf } from './graphql-types';
 
 /*******************
  * Message-related *
@@ -198,7 +198,7 @@ export type ValidateDefinition<
     : `Type definitions must be strings, enums or plain objects (was array)`
   : TDef extends string
   ? ValidateString<TDef, $>
-  : TDef extends GraphQLEnum
+  : TDef extends GraphQLEnum | GraphQLScalar<any, any>
   ? TDef
   : IsUnknown<TDef> extends true
   ? StringKeyOf<$>

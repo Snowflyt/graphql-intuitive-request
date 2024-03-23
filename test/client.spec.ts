@@ -1,6 +1,7 @@
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { createClient } from '@/client';
+import { scalar } from '@/types';
 import { trimIndent } from '@/utils';
 
 const request = vi.fn().mockResolvedValue({});
@@ -16,6 +17,7 @@ describe('client', () => {
       username: 'String!',
       email: 'String',
       posts: '[Post!]!',
+      registeredAt: 'DateTime!',
     },
     Post: {
       id: 'Int!',
@@ -26,6 +28,7 @@ describe('client', () => {
     CreateUserInput: {
       username: 'String!',
       password: 'String!',
+      registeredAt: 'DateTime!',
     },
     UpdateUserInput: {
       'username?': 'String!',
@@ -47,6 +50,11 @@ describe('client', () => {
     LoginOutput: {
       token: 'String!',
     },
+    DateTime: scalar<string>()({
+      parse: (value) => new Date(value),
+      serialize: (value) => value.toISOString(),
+    }),
+
     Query: {
       userExists: [{ username: 'String!' }, '=>', 'Boolean!'],
       user: [{ id: 'Int!' }, '=>', 'User'],
@@ -135,10 +143,31 @@ describe('client', () => {
             content
             authorId
           }
+          registeredAt
         }
       }
     `;
-    const expectedVariables = { id: 1 };
+    const expectedVariables1 = { id: 1 };
+
+    const expectedQueryString3 = /* GraphQL */ `
+      mutation createUser($input: CreateUserInput!) {
+        createUser(input: $input) {
+          id
+          username
+          email
+          posts {
+            title
+          }
+        }
+      }
+    `;
+    const expectedVariables3 = {
+      input: {
+        username: 'admin',
+        password: 'password',
+        registeredAt: '2024-03-23T17:43:07.206Z',
+      },
+    };
 
     const promise1 = query('user', { id: 1 }).select((user) => [
       user.username,
@@ -147,7 +176,7 @@ describe('client', () => {
     ]);
     const { query: queryString1, variables: vars1 } = promise1.toRequestBody();
     expect(queryString1).toBe(trimIndent(expectedQueryString1));
-    expect(vars1).toEqual(expectedVariables);
+    expect(vars1).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise1;
@@ -159,7 +188,7 @@ describe('client', () => {
       .by({ id: 1 });
     const { query: queryString2, variables: vars2 } = promise2.toRequestBody();
     expect(queryString2).toBe(trimIndent(expectedQueryString1));
-    expect(vars2).toEqual(expectedVariables);
+    expect(vars2).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise2;
@@ -172,7 +201,7 @@ describe('client', () => {
       .byId(1);
     const { query: queryString3, variables: vars3 } = promise3.toRequestBody();
     expect(queryString3).toBe(trimIndent(expectedQueryString1));
-    expect(vars3).toEqual(expectedVariables);
+    expect(vars3).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise3;
@@ -183,7 +212,7 @@ describe('client', () => {
     const promise4 = query('user', { id: 1 });
     const { query: queryString4, variables: vars4 } = promise4.toRequestBody();
     expect(queryString4).toBe(trimIndent(expectedQueryString2));
-    expect(vars4).toEqual(expectedVariables);
+    expect(vars4).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise4;
@@ -194,7 +223,7 @@ describe('client', () => {
     const promise5 = query('user').by({ id: 1 });
     const { query: queryString5, variables: vars5 } = promise5.toRequestBody();
     expect(queryString5).toBe(trimIndent(expectedQueryString2));
-    expect(vars5).toEqual(expectedVariables);
+    expect(vars5).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise5;
@@ -205,10 +234,27 @@ describe('client', () => {
     const promise6 = query('user').byId(1);
     const { query: queryString6, variables: vars6 } = promise6.toRequestBody();
     expect(queryString6).toBe(trimIndent(expectedQueryString2));
-    expect(vars6).toEqual(expectedVariables);
+    expect(vars6).toEqual(expectedVariables1);
     // Make sure the request is only sent once
     expect(request).not.toHaveBeenCalled();
     await promise6;
+    expect(request).toHaveBeenCalledTimes(1);
+    request.mockClear();
+
+    // Test scalar serialization
+    const promise7 = mutation('createUser')
+      .select((user) => [user.id, user.username, user.email, user.posts((post) => [post.title])])
+      .byInput({
+        username: 'admin',
+        password: 'password',
+        registeredAt: new Date('2024-03-23T17:43:07.206Z'),
+      });
+    const { query: queryString7, variables: vars7 } = promise7.toRequestBody();
+    expect(queryString7).toBe(trimIndent(expectedQueryString3));
+    expect(vars7).toEqual(expectedVariables3);
+    // Make sure the request is only sent once
+    expect(request).not.toHaveBeenCalled();
+    await promise7;
     expect(request).toHaveBeenCalledTimes(1);
     request.mockClear();
   });
@@ -255,6 +301,7 @@ describe('client', () => {
             content
             authorId
           }
+          registeredAt
         }
       }
     `;

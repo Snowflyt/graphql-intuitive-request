@@ -1,32 +1,16 @@
 export type QueryNode =
-  | PrimitiveQueryNode
+  | ScalarQueryNode
   | ArrayQueryNode
   | ObjectQueryNode
-  | NullableQueryNode<PrimitiveQueryNode | ArrayQueryNode | ObjectQueryNode>;
+  | NullableQueryNode<ScalarQueryNode | ArrayQueryNode | ObjectQueryNode>;
 
-export interface StringQueryNode<K extends string = any, TAvailableValues extends string = string> {
+export interface ScalarQueryNode<K extends string = any, T = any> {
   key: K;
   args: Record<string, unknown>;
   children: null;
-  availableValues: TAvailableValues;
-  __type: 'string';
+  __type: 'scalar';
+  __scalarType: T;
 }
-
-export interface NumberQueryNode<K extends string = any> {
-  key: K;
-  args: Record<string, unknown>;
-  children: null;
-  __type: 'number';
-}
-
-export interface BooleanQueryNode<K extends string = any> {
-  key: K;
-  args: Record<string, unknown>;
-  children: null;
-  __type: 'boolean';
-}
-
-export type PrimitiveQueryNode = StringQueryNode | NumberQueryNode | BooleanQueryNode;
 
 export interface ArrayQueryNode<K extends string = any, C extends QueryNode = any> {
   key: K;

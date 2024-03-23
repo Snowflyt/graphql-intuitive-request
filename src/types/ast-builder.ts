@@ -9,14 +9,13 @@ import type {
   Obj,
   StringKeyOf,
 } from './common';
+import type { GraphQLScalar } from './graphql-types';
 import type {
   ArrayQueryNode,
-  BooleanQueryNode,
   NullableQueryNode,
-  NumberQueryNode,
   ObjectQueryNode,
   QueryNode,
-  StringQueryNode,
+  ScalarQueryNode,
 } from './query-node';
 
 export type ObjectSelectorBuilder<T> = ExcludeNeverValues<{
@@ -27,10 +26,15 @@ export type ObjectSelector<T extends object, R extends readonly QueryNode[]> = (
   builder: ObjectSelectorBuilder<T>,
 ) => R;
 
-type IsPrimitiveOrNestedPrimitiveArray<T> = T extends string | number | boolean | null
+type IsScalarOrNestedScalarArray<T> = T extends
+  | string
+  | number
+  | boolean
+  | GraphQLScalar<any, any>
+  | null
   ? true
   : T extends Array<infer E> | null
-  ? IsPrimitiveOrNestedPrimitiveArray<E> extends true
+  ? IsScalarOrNestedScalarArray<E> extends true
     ? true
     : false
   : false;
@@ -71,7 +75,7 @@ type GetQueryNode<
   : [V] extends [[infer TInput, infer TOutput]]
   ? GetQueryNode<K, TOutput, false, TInput>
   : [V] extends [Array<infer E>]
-  ? IsPrimitiveOrNestedPrimitiveArray<E> extends true
+  ? IsScalarOrNestedScalarArray<E> extends true
     ? GetQueryNode<K, E> extends QueryNode
       ? IsNever<GetQueryNode<K, E>> extends true
         ? never
@@ -124,6 +128,14 @@ type GetQueryNode<
           definition: ObjectSelector<E, R>,
         ) => ArrayQueryNode<K, ObjectQueryNode<K, R>>
     : never
+  : [V] extends [GraphQLScalar<any, infer U>]
+  ? TIsLastNullable extends true
+    ? ScalarQueryNode<K, U>
+    : IsNever<TLastInput> extends true
+    ? ScalarQueryNode<K, U>
+    : Obj.IsAllOptional<TLastInput> extends true
+    ? ScalarQueryNode<K, U> & ((input: TLastInput) => ScalarQueryNode<K, U>)
+    : (input: TLastInput) => ScalarQueryNode<K, U>
   : [V] extends [object]
   ? TIsLastNullable extends true
     ? IsNever<TLastInput> extends true
@@ -163,28 +175,12 @@ type GetQueryNode<
         input: TLastInput,
         definition: ObjectSelector<V, R>,
       ) => ObjectQueryNode<K, R>
-  : [V] extends [string]
+  : [V] extends [string | number | boolean]
   ? TIsLastNullable extends true
-    ? StringQueryNode<K, V>
+    ? ScalarQueryNode<K, V>
     : IsNever<TLastInput> extends true
-    ? StringQueryNode<K, V>
+    ? ScalarQueryNode<K, V>
     : Obj.IsAllOptional<TLastInput> extends true
-    ? StringQueryNode<K, V> & ((input: TLastInput) => StringQueryNode<K, V>)
-    : (input: TLastInput) => StringQueryNode<K, V>
-  : [V] extends [number]
-  ? TIsLastNullable extends true
-    ? NumberQueryNode<K>
-    : IsNever<TLastInput> extends true
-    ? NumberQueryNode<K>
-    : Obj.IsAllOptional<TLastInput> extends true
-    ? NumberQueryNode<K> & ((input: TLastInput) => NumberQueryNode<K>)
-    : (input: TLastInput) => NumberQueryNode<K>
-  : [V] extends [boolean]
-  ? TIsLastNullable extends true
-    ? BooleanQueryNode<K>
-    : IsNever<TLastInput> extends true
-    ? BooleanQueryNode<K>
-    : Obj.IsAllOptional<TLastInput> extends true
-    ? BooleanQueryNode<K> & ((input: TLastInput) => BooleanQueryNode<K>)
-    : (input: TLastInput) => BooleanQueryNode<K>
+    ? ScalarQueryNode<K, V> & ((input: TLastInput) => ScalarQueryNode<K, V>)
+    : (input: TLastInput) => ScalarQueryNode<K, V>
   : never;

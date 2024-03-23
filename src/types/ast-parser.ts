@@ -1,38 +1,24 @@
-import type { IsNever, Merge } from './common';
+import type { Merge } from './common';
 import type {
   ArrayQueryNode,
-  BooleanQueryNode,
   NullableQueryNode,
-  NumberQueryNode,
   ObjectQueryNode,
   QueryNode,
-  StringQueryNode,
+  ScalarQueryNode,
 } from './query-node';
 
 type GetArrayQueryNodeType<T> = T extends NullableQueryNode<infer N>
   ? GetArrayQueryNodeType<N> | null
   : T extends ArrayQueryNode<any, infer C>
   ? Array<GetArrayQueryNodeType<C>>
-  : T extends StringQueryNode<any, infer AV>
-  ? IsNever<AV> extends true
-    ? string
-    : AV
-  : T extends NumberQueryNode
-  ? number
-  : T extends BooleanQueryNode
-  ? boolean
+  : T extends ScalarQueryNode<any, infer U>
+  ? U
   : never;
 
 type GetQueryNodeType<T> = T extends NullableQueryNode<infer N>
   ? GetQueryNodeType<N> | null
-  : T extends StringQueryNode<any, infer AV>
-  ? IsNever<AV> extends true
-    ? string
-    : AV
-  : T extends NumberQueryNode
-  ? number
-  : T extends BooleanQueryNode
-  ? boolean
+  : T extends ScalarQueryNode<any, infer U>
+  ? U
   : T extends ArrayQueryNode<any, infer C>
   ? C extends ObjectQueryNode<any, infer CS>
     ? Array<ParseNodes<CS>>

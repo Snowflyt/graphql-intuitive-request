@@ -123,7 +123,7 @@ type _OperationFunction<
     ? // For operations without input,
       Or<Obj.IsEmpty<ParseInputDef<TInputDef, $>>, TOptions['isInputPassed']> extends true
       ? // users can either just await it to get the response (automatically select all fields, e.g. `await query('users')`), ...
-        _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>> & {
+        _OperationResponse<TMethod, TReturn> & {
           // ... or use `.select` to manually select fields from the response (e.g. `await query('users').select(...)`)
           select: <const TQueryNodes extends readonly QueryNode[]>(
             selector: ObjectSelector<TCoreReturn, TQueryNodes>,
@@ -154,19 +154,13 @@ type _OperationFunction<
                 : unknown);
             // or omit `.select` and automatically select all fields and then use `.by` or its
             // abbreviated syntax to send the input and get the response, ...
-            by: (
-              input: ParseInputDef<TInputDef, $>,
-            ) => _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>>;
+            by: (input: ParseInputDef<TInputDef, $>) => _OperationResponse<TMethod, TReturn>;
           },
-          AbbreviatedByMixin<
-            TInputDef,
-            $,
-            _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>>
-          >
+          AbbreviatedByMixin<TInputDef, $, _OperationResponse<TMethod, TReturn>>
         > &
           // or omit both `.select` and `.by` if all fields are optional and just await it, ...
           (RequiredFieldsCount<TInputDef> extends 0
-            ? _OperationResponse<TMethod, WrapByVariant<TCoreReturn, TVariant>>
+            ? _OperationResponse<TMethod, TReturn>
             : unknown)
     : Or<Obj.IsEmpty<TInputDef>, TOptions['isInputPassed']> extends true
     ? // For operations returning a scalar without input, just await it to get the response

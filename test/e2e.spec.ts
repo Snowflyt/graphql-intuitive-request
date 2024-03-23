@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createClient } from '@/client';
-import { enumOf } from '@/types';
+import { enumOf, scalar } from '@/types';
 import { trimIndent } from '@/utils';
 
 describe('client', () => {
@@ -54,9 +54,13 @@ describe('client', () => {
       search: 'SearchOptions',
     },
     PaginateOptions: {
-      page: 'Int',
+      page: 'PageScalar',
       limit: 'Int',
     },
+    PageScalar: scalar<number>()({
+      parse: (value) => 'p' + value,
+      serialize: (value) => Number.parseInt(value.slice(1)),
+    }),
     SliceOptions: {
       start: 'Int',
       end: 'Int',
@@ -88,8 +92,12 @@ describe('client', () => {
       limit: 'Int',
     },
     PageMetadata: {
-      totalCount: 'Int!',
+      totalCount: 'TotalCountScalar!',
     },
+    TotalCountScalar: scalar<number>()({
+      parse: (value) => String(value),
+      serialize: (value) => Number.parseInt(value),
+    }),
 
     Album: {
       id: 'ID',
@@ -364,7 +372,7 @@ describe('client', () => {
         posts.data((post) => [post.id, post.title]),
         posts.meta((meta) => [meta.totalCount]),
       ])
-      .byOptions({ paginate: { page: 1, limit: 5 } });
+      .byOptions({ paginate: { page: 'p1', limit: 5 } });
     expect(posts).toEqual({
       data: [
         {
@@ -389,7 +397,7 @@ describe('client', () => {
         },
       ],
       meta: {
-        totalCount: 100,
+        totalCount: '100',
       },
     });
   });
@@ -438,7 +446,7 @@ describe('client', () => {
           album.photos(
             {
               options: {
-                paginate: { page: 2, limit: 3 },
+                paginate: { page: 'p2', limit: 3 },
                 sort: [{ field: 'title', order: 'ASC' }],
               },
             },
@@ -450,7 +458,7 @@ describe('client', () => {
         ]),
         albums.meta((meta) => [meta.totalCount]),
       ])
-      .byOptions({ paginate: { page: 3, limit: 2 } });
+      .byOptions({ paginate: { page: 'p3', limit: 2 } });
     expect(albums).toEqual({
       data: [
         {
@@ -477,7 +485,7 @@ describe('client', () => {
               },
             ],
             meta: {
-              totalCount: 50,
+              totalCount: '50',
             },
           },
         },
@@ -505,13 +513,13 @@ describe('client', () => {
               },
             ],
             meta: {
-              totalCount: 50,
+              totalCount: '50',
             },
           },
         },
       ],
       meta: {
-        totalCount: 100,
+        totalCount: '100',
       },
     });
   });

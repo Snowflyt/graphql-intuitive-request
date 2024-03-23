@@ -357,6 +357,53 @@ const user = await query('user', { id: 1 }).select((user) => [
 
 Whether you can omit arguments or not is validated at compile time, so you can be sure that you will not forget to pass required arguments at runtime.
 
+### Use scalars to transform values
+
+GraphQL provides the ability to define custom scalar types, which should be transformed to a specific type in the client. For example, you can define a `DateTime` scalar type in the GraphQL schema, and you want to transform it to a `Date` object in the client.
+
+```graphql
+scalar DateTime
+
+type User {
+  id: Int!
+  name: String!
+  createdAt: DateTime!
+}
+```
+
+To define a scalar type in the `withSchema` function, you can use the `scalar` function.
+
+```typescript
+import { createClient, scalar } from 'graphql-intuitive-request';
+
+const { mutation, query } = createClient('https://example.com/graphql').withSchema({
+  User: {
+    id: 'Int!',
+    name: 'String!',
+    createdAt: 'DateTime!',
+  },
+  CreateUserInput: {
+    name: 'String!',
+    createdAt: 'DateTime!',
+  },
+  DateTime: scalar<Date>()({
+    parse: (value) => new Date(value),
+    serialize: (value) => value.toISOString(),
+  }),
+
+  Query: {
+    user: [{ id: 'Int!' }, '=>', 'User'],
+  },
+  Mutation: {
+    createUser: [{ input: 'CreateUserInput!' }, '=>', 'User!'],
+  },
+});
+```
+
+Then when you query the `createdAt` field, the value will be transformed to a `Date` object. The same is true when you pass a `Date` object to the `createdAt` field in a mutation, the value will be serialized to a string.
+
+`GraphQLScalarType` from `graphql` package can also be used to replace the `scalar` function, so you can import other scalar types from packages like `graphql-scalars`.
+
 ### Support for subscriptions
 
 graphql-intuitive-request supports GraphQL subscriptions. You can use `client.subscription` to create a subscription. The usage is similar to `client.query` and `client.mutation`.

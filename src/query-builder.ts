@@ -1,5 +1,6 @@
+import { extractCoreDefinition } from './definition-utils';
 import { parseSelector } from './selector';
-import { createTypeParser } from './type-parser';
+import { transformScalarRecursively } from './types';
 import { mapObjectValues } from './utils';
 
 import type { ObjectSelector } from './types/ast-builder';
@@ -26,7 +27,10 @@ const buildQueryAst = (
                 .map(([key, value]) => {
                   const variableName = path2variableName([...path, node.key, key]);
                   const valueType = $[type][node.key as never][0][key] as string;
-                  _variables[variableName] = { type: valueType, value };
+                  _variables[variableName] = {
+                    type: valueType,
+                    value: transformScalarRecursively(value, valueType, $, 'serialize'),
+                  };
                   return `${key}: $${variableName}`;
                 })
                 .join(', ') +
@@ -39,7 +43,7 @@ const buildQueryAst = (
                 const { queryString, variables } = buildQueryAst(
                   node.children as QueryNode[],
                   indent + 2,
-                  createTypeParser($).extractCoreType(
+                  extractCoreDefinition(
                     Array.isArray($[type][node.key as never])
                       ? $[type][node.key as never][1]
                       : $[type][node.key as never],
@@ -71,7 +75,7 @@ export const buildQueryString = (
           const { queryString, variables } = buildQueryAst(
             ast,
             4,
-            createTypeParser($).extractCoreType(returnType),
+            extractCoreDefinition(returnType),
             $,
           );
           return [' ' + queryString, variables];

@@ -1,9 +1,9 @@
-import { createTypeParser } from './type-parser';
+import { extractCoreDefinition, refersScalarDefinition } from './definition-utils';
 import { requiredKeysCount } from './utils';
 
 import type { ObjectSelector, ObjectSelectorBuilder } from './types/ast-builder';
 import type { ParseNodes } from './types/ast-parser';
-import type { ObjectDefinition, TypeCollection } from './types/graphql-types';
+import type { TypeCollection } from './types/graphql-types';
 import type { QueryNode } from './types/query-node';
 
 const createBuilder = <T>(): ObjectSelectorBuilder<T> =>
@@ -33,9 +33,7 @@ export const createAllSelector = <T extends string, $ extends TypeCollection>(
   type: T,
   $: $,
 ): any => {
-  const parser = createTypeParser($);
-
-  const spread = (coreType: string) => $[coreType] as ObjectDefinition;
+  const spread = (coreType: string) => $[coreType];
 
   const buildSelector = (coreType: string) => (o: any) => {
     return Object.entries(spread(coreType)).map(([key, value]) => {
@@ -43,12 +41,12 @@ export const createAllSelector = <T extends string, $ extends TypeCollection>(
         throw new Error(
           `All input fields of '${coreType}.${key}' must be optional to automatically select all fields`,
         );
-      const _coreType = parser.extractCoreType(typeof value === 'string' ? value : value[1]);
-      return parser.isScalarType(_coreType) ? o[key] : o[key](buildSelector(_coreType));
+      const _coreType = extractCoreDefinition(typeof value === 'string' ? value : value[1]);
+      return refersScalarDefinition(_coreType, $) ? o[key] : o[key](buildSelector(_coreType));
     });
   };
 
-  return buildSelector(parser.extractCoreType(type));
+  return buildSelector(extractCoreDefinition(type));
 };
 
 export const parseSelector = (selector: any): readonly QueryNode[] => selector(createBuilder());

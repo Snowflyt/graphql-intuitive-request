@@ -1,14 +1,15 @@
 import { describe, equal, expect, it } from 'typroof';
 
-import { enumOf, infer, schema } from './types';
+import { enumOf, infer, scalar, schema } from './types';
 
-import type { GraphQLEnum } from './types/graphql-types';
+import type { GraphQLEnum, GraphQLScalar } from './types/graphql-types';
 
 let $: {
   User: {
     id: 'Int!';
     username: 'String!';
     email: 'String';
+    createdAt: 'DateTime!';
   };
   Post: {
     id: 'Int!';
@@ -18,6 +19,7 @@ let $: {
     author: 'User!';
   };
   PostStatus: GraphQLEnum<'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>;
+  DateTime: GraphQLScalar<string, Date>;
 
   Query: {
     users: ['=>', '[User!]!'];
@@ -32,6 +34,7 @@ describe('schema', () => {
         id: 'Int!',
         username: 'String!',
         email: 'String',
+        createdAt: 'DateTime!',
       },
       Post: {
         id: 'Int!',
@@ -41,6 +44,10 @@ describe('schema', () => {
         author: 'User!',
       },
       PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
+      DateTime: scalar<string>()({
+        parse: (value) => new Date(value),
+        serialize: (value) => value.toISOString(),
+      }),
 
       Query: {
         users: ['=>', '[User!]!'],
@@ -62,6 +69,7 @@ describe('compile', () => {
         id: number;
         username: string;
         email: string | null;
+        createdAt: Date;
       }>(),
     );
 

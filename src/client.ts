@@ -1,14 +1,14 @@
 import { GraphQLClient as RequestClient } from 'graphql-request';
 import { createClient as createWSClient } from 'graphql-ws';
 
+import { nullableDefinition, refersScalarDefinition } from './definition-utils';
 import { buildQueryString } from './query-builder';
 import { createAllSelector, parseSelector } from './selector';
-import { createTypeParser } from './type-parser';
+import { transformScalarRecursively } from './types';
 import { capitalize, mapObject, mapObjectValues, omit, pick, requiredKeysCount } from './utils';
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - `schema` is only used in doc
-import type { schema } from './types';
 import type { MutationFunction, QueryFunction, SubscriptionFunction } from './types/client-tools';
 import type { Obj, QueryPromise, SimpleSpread, SubscriptionResponse } from './types/common';
 import type { OperationCollection, TypeCollection } from './types/graphql-types';
@@ -78,16 +78,15 @@ const _createClient = <
   const mutations = normalizeOperations((_rawTypes.Mutation as OperationCollection) ?? {});
   const subscriptions = normalizeOperations((_rawTypes.Subscription as OperationCollection) ?? {});
 
-  const typeParser = createTypeParser($);
   const compileOperations = (operations: NormalizedOperations) =>
     mapObjectValues(operations, ({ inputType, returnType }) => ({
       inputType: mapObject(inputType, ([name, type]) => [
         name.replace(/\?$/, ''),
-        name.endsWith('?') ? typeParser.nullable(type) : type,
+        name.endsWith('?') ? nullableDefinition(type) : type,
       ]),
       returnType,
       hasInput: Object.keys(inputType).length > 0,
-      isReturnTypeScalar: typeParser.isScalarType(returnType),
+      isReturnTypeScalar: refersScalarDefinition(returnType, $),
     }));
 
   const preCompiledQueries = compileOperations(queries);
@@ -100,35 +99,32 @@ const _createClient = <
     inputType: Record<string, string>,
     returnType: string,
     input: Record<string, any>,
-    ast: readonly QueryNode[] | (() => readonly QueryNode[]),
+    astOrAstFactory: readonly QueryNode[] | (() => readonly QueryNode[]),
   ): TMethod extends 'subscription' ? SubscriptionResponse<any> : QueryPromise<any> => {
-    const { queryString, variables } = (() => {
-      let cached: ReturnType<typeof buildQueryString> | null = null;
+    const transformedInput = mapObject(input, ([k, v]) => [
+      k,
+      transformScalarRecursively(v, inputType[k], $, 'serialize'),
+    ]);
+    const { getQueryString, getVariables } = (() => {
+      const getAst = (() => {
+        let cached: readonly QueryNode[] | null = null;
+        return () => {
+          if (cached) return cached;
+          cached = typeof astOrAstFactory === 'function' ? astOrAstFactory() : astOrAstFactory;
+          return cached;
+        };
+      })();
+      const getBuildResult = (() => {
+        let cached: ReturnType<typeof buildQueryString> | null = null;
+        return () => {
+          if (cached) return cached;
+          cached = buildQueryString(method, operationName, inputType, returnType, $, getAst());
+          return cached;
+        };
+      })();
       return {
-        queryString: () => {
-          if (cached) return cached.queryString;
-          cached = buildQueryString(
-            method,
-            operationName,
-            inputType,
-            returnType,
-            $,
-            typeof ast === 'function' ? ast() : ast,
-          );
-          return cached.queryString;
-        },
-        variables: () => {
-          if (cached) return cached.variables;
-          cached = buildQueryString(
-            method,
-            operationName,
-            inputType,
-            returnType,
-            $,
-            typeof ast === 'function' ? ast() : ast,
-          );
-          return cached.variables;
-        },
+        getQueryString: () => getBuildResult().queryString,
+        getVariables: () => getBuildResult().variables,
       };
     })();
 
@@ -140,7 +136,7 @@ const _createClient = <
           onComplete?: () => void,
         ) =>
           wsClient.subscribe(
-            { query: queryString(), variables: { ...input, ...variables() } },
+            { query: getQueryString(), variables: { ...transformedInput, ...getVariables() } },
             {
               next: (value) => {
                 if (value.errors) onError?.(value.errors);
@@ -154,21 +150,26 @@ const _createClient = <
               },
             },
           ),
-        toQueryString: () => queryString(),
-        toRequestBody: () => ({ query: queryString(), variables: { ...input, ...variables() } }),
+        toQueryString: () => getQueryString(),
+        toRequestBody: () => ({
+          query: getQueryString(),
+          variables: { ...transformedInput, ...getVariables() },
+        }),
       } as any;
 
-    const result: any = Promise.resolve(null).then(() => {
+    const result: any = Promise.resolve(null).then(async () => {
       if (cancelledPromises.has(result)) return;
 
-      return requestClient
-        .request(queryString(), { ...input, ...variables() })
+      const res = await requestClient
+        .request(getQueryString(), { ...transformedInput, ...getVariables() })
         .then((data) => (data as any)[operationName]);
+
+      return transformScalarRecursively(res, returnType, $, 'parse');
     });
-    result.toQueryString = () => queryString();
+    result.toQueryString = () => getQueryString();
     result.toRequestBody = () => ({
-      query: queryString(),
-      variables: { ...input, ...variables() },
+      query: getQueryString(),
+      variables: { ...transformedInput, ...getVariables() },
     });
     return result;
   };

@@ -3,52 +3,74 @@ import type {
   GraphQLEnum,
   GraphQLList,
   GraphQLNonNull,
+  GraphQLScalar,
   ObjectDefinition,
-  ScalarDefinition,
 } from './graphql-types';
 
 type TryResolve<
   T extends StringKeyOf<$>,
   $,
-  TOptions extends { treatNullableTypeAsOptional?: boolean },
+  TOptions extends { resolveScalar?: boolean; treatNullableTypeAsOptional?: boolean },
 > = $[T] extends infer TDef
-  ? TDef extends ObjectDefinition | ScalarDefinition
+  ? TDef extends ObjectDefinition | string
     ? _Parse<TDef, $, TOptions>
     : TDef extends GraphQLEnum<infer S>
     ? S
+    : TDef extends GraphQLScalar<any, infer U>
+    ? TOptions['resolveScalar'] extends true
+      ? U
+      : TDef
     : TDef
   : never;
 
 export type ParseDef<
   TDef,
   $,
-  TOptions extends { treatNullableTypeAsOptional?: boolean; acceptVoid?: boolean } = {},
+  TOptions extends {
+    treatNullableTypeAsOptional?: boolean;
+    acceptVoid?: boolean;
+  } = {},
 > = [TOptions['acceptVoid'], TDef] extends [true, 'void']
   ? { type: void; coreType: void; variant: 'SIMPLE' }
-  : [_Parse<TDef, $, TOptions>] extends [infer TType]
-  ? [TType] extends [Array<infer U> | null]
-    ? null extends TType
-      ? null extends U
-        ? { type: TType; coreType: U; variant: 'NULLABLE-LIST-NULLABLE' }
-        : { type: TType; coreType: U; variant: 'LIST-NULLABLE' }
-      : null extends U
-      ? { type: TType; coreType: U; variant: 'NULLABLE-LIST' }
-      : { type: TType; coreType: U; variant: 'LIST' }
-    : [TType] extends [infer U | null]
-    ? null extends TType
-      ? { type: TType; coreType: U; variant: 'SIMPLE-NULLABLE' }
-      : { type: TType; coreType: U; variant: 'SIMPLE' }
+  : [_Parse<TDef, $, TOptions>] extends [infer TIntermediateType]
+  ? [_Parse<TDef, $, SimpleMerge<TOptions, { ignoreInput: true; resolveScalar: true }>>] extends [
+      infer TType,
+    ]
+    ? [TIntermediateType] extends [Array<infer U> | null]
+      ? null extends TIntermediateType
+        ? null extends U
+          ? { type: TType; coreType: U; variant: 'NULLABLE-LIST-NULLABLE' }
+          : { type: TType; coreType: U; variant: 'LIST-NULLABLE' }
+        : null extends U
+        ? { type: TType; coreType: U; variant: 'NULLABLE-LIST' }
+        : { type: TType; coreType: U; variant: 'LIST' }
+      : [TIntermediateType] extends [infer U | null]
+      ? null extends TIntermediateType
+        ? { type: TType; coreType: U; variant: 'SIMPLE-NULLABLE' }
+        : { type: TType; coreType: U; variant: 'SIMPLE' }
+      : never
     : never
   : never;
 
-type _Parse<TDef, $, TOptions extends { treatNullableTypeAsOptional?: boolean }> = TDef extends [
-  infer TInput,
-  infer TOutput,
-]
-  ? [
-      _Parse<TInput, $, SimpleMerge<TOptions, { treatNullableTypeAsOptional: true }>>,
-      _Parse<TOutput, $, TOptions>,
-    ]
+type _Parse<
+  TDef,
+  $,
+  TOptions extends {
+    ignoreInput?: boolean;
+    resolveScalar?: boolean;
+    treatNullableTypeAsOptional?: boolean;
+  },
+> = TDef extends [infer TInput, infer TOutput]
+  ? TOptions['ignoreInput'] extends true
+    ? _Parse<TOutput, $, TOptions>
+    : [
+        _Parse<
+          TInput,
+          $,
+          SimpleMerge<TOptions, { resolveScalar: true; treatNullableTypeAsOptional: true }>
+        >,
+        _Parse<TOutput, $, TOptions>,
+      ]
   : TDef extends ObjectDefinition
   ? TOptions['treatNullableTypeAsOptional'] extends true
     ? Merge<
@@ -91,4 +113,10 @@ type _Parse<TDef, $, TOptions extends { treatNullableTypeAsOptional?: boolean }>
     : never
   : TDef extends GraphQLList<infer U>
   ? _Parse<U, $, TOptions>[] | null
+  : TDef extends GraphQLEnum<infer S>
+  ? S
+  : TOptions['resolveScalar'] extends true
+  ? TDef extends GraphQLScalar<any, infer U>
+    ? U
+    : TDef
   : TDef;

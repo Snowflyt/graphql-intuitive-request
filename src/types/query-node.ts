@@ -6,6 +6,7 @@ export type QueryNode =
 
 export interface StringQueryNode<K extends string = any, TAvailableValues extends string = string> {
   key: K;
+  args: Record<string, unknown>;
   children: null;
   availableValues: TAvailableValues;
   __type: 'string';
@@ -13,12 +14,14 @@ export interface StringQueryNode<K extends string = any, TAvailableValues extend
 
 export interface NumberQueryNode<K extends string = any> {
   key: K;
+  args: Record<string, unknown>;
   children: null;
   __type: 'number';
 }
 
 export interface BooleanQueryNode<K extends string = any> {
   key: K;
+  args: Record<string, unknown>;
   children: null;
   __type: 'boolean';
 }
@@ -27,12 +30,14 @@ export type PrimitiveQueryNode = StringQueryNode | NumberQueryNode | BooleanQuer
 
 export interface ArrayQueryNode<K extends string = any, C extends QueryNode = any> {
   key: K;
+  args: Record<string, unknown>;
   children: C;
   __type: 'array';
 }
 
 export interface ObjectQueryNode<K extends string = any, C extends readonly QueryNode[] = any> {
   key: K;
+  args: Record<string, unknown>;
   children: C;
   __type: 'object';
 }

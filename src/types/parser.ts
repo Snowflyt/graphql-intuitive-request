@@ -1,15 +1,23 @@
-import type { Merge, StringKeyOf } from './common';
-import type { GraphQLEnum, GraphQLList, GraphQLNonNull } from './graphql-types';
+import type { Merge, SimpleMerge, StringKeyOf } from './common';
+import type {
+  GraphQLEnum,
+  GraphQLList,
+  GraphQLNonNull,
+  ObjectDefinition,
+  ScalarDefinition,
+} from './graphql-types';
 
 type TryResolve<
   T extends StringKeyOf<$>,
   $,
   TOptions extends { treatNullableTypeAsOptional?: boolean },
-> = $[T] extends string | Record<string, string>
-  ? _Parse<$[T], $, TOptions>
-  : $[T] extends GraphQLEnum<infer S>
-  ? S
-  : $[T];
+> = $[T] extends infer TDef
+  ? TDef extends ObjectDefinition | ScalarDefinition
+    ? _Parse<TDef, $, TOptions>
+    : TDef extends GraphQLEnum<infer S>
+    ? S
+    : TDef
+  : never;
 
 export type ParseDef<
   TDef,
@@ -33,11 +41,15 @@ export type ParseDef<
     : never
   : never;
 
-type _Parse<
-  TDef,
-  $,
-  TOptions extends { treatNullableTypeAsOptional?: boolean },
-> = TDef extends Record<string, string>
+type _Parse<TDef, $, TOptions extends { treatNullableTypeAsOptional?: boolean }> = TDef extends [
+  infer TInput,
+  infer TOutput,
+]
+  ? [
+      _Parse<TInput, $, SimpleMerge<TOptions, { treatNullableTypeAsOptional: true }>>,
+      _Parse<TOutput, $, TOptions>,
+    ]
+  : TDef extends ObjectDefinition
   ? TOptions['treatNullableTypeAsOptional'] extends true
     ? Merge<
         {

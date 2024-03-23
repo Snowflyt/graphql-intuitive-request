@@ -8,88 +8,196 @@ import { trimIndent } from '@/utils';
 
 describe('client', () => {
   const { mutation, query } = createClient('https://graphqlzero.almansi.me/api').withSchema({
-    PageLimitPair: {
+    Query: {
+      _: ['=>', 'Int'],
+      albums: [{ options: 'PageQueryOptions' }, '=>', 'AlbumsPage!'],
+      album: [{ id: 'ID!' }, '=>', 'Album'],
+      comments: [{ options: 'PageQueryOptions' }, '=>', 'CommentsPage!'],
+      comment: [{ id: 'ID!' }, '=>', 'Comment'],
+      photos: [{ options: 'PageQueryOptions' }, '=>', 'PhotosPage!'],
+      photo: [{ id: 'ID!' }, '=>', 'Photo'],
+      posts: [{ options: 'PageQueryOptions' }, '=>', 'PostsPage!'],
+      post: [{ id: 'ID!' }, '=>', 'Post'],
+      todos: [{ options: 'PageQueryOptions' }, '=>', 'TodosPage!'],
+      todo: [{ id: 'ID!' }, '=>', 'Todo'],
+      users: [{ options: 'PageQueryOptions' }, '=>', 'UsersPage!'],
+      user: [{ id: 'ID!' }, '=>', 'User'],
+    },
+
+    Mutation: {
+      _: ['=>', 'Int'],
+      createAlbum: [{ input: 'CreateAlbumInput!' }, '=>', 'Album'],
+      updateAlbum: [{ id: 'ID!', input: 'UpdateAlbumInput!' }, '=>', 'Album'],
+      deleteAlbum: [{ id: 'ID!' }, '=>', 'Boolean!'],
+      createComment: [{ input: 'CreateCommentInput!' }, '=>', 'Comment'],
+      updateComment: [{ id: 'ID!', input: 'UpdateCommentInput!' }, '=>', 'Comment'],
+      deleteComment: [{ id: 'ID!' }, '=>', 'Boolean!'],
+      createPhoto: [{ input: 'CreatePhotoInput!' }, '=>', 'Photo'],
+      updatePhoto: [{ id: 'ID!', input: 'UpdatePhotoInput!' }, '=>', 'Photo'],
+      deletePhoto: [{ id: 'ID!' }, '=>', 'Boolean!'],
+      createPost: [{ input: 'CreatePostInput!' }, '=>', 'Post'],
+      updatePost: [{ id: 'ID!', input: 'UpdatePostInput!' }, '=>', 'Post'],
+      deletePost: [{ id: 'ID!' }, '=>', 'Boolean!'],
+      createTodo: [{ input: 'CreateTodoInput!' }, '=>', 'Todo'],
+      updateTodo: [{ id: 'ID!', input: 'UpdateTodoInput!' }, '=>', 'Todo'],
+      deleteTodo: [{ id: 'ID!' }, '=>', 'Boolean!'],
+      createUser: [{ input: 'CreateUserInput!' }, '=>', 'User'],
+      updateUser: [{ id: 'ID!', input: 'UpdateUserInput!' }, '=>', 'User'],
+      deleteUser: [{ id: 'ID!' }, '=>', 'Boolean!'],
+    },
+
+    PageQueryOptions: {
+      paginate: 'PaginateOptions',
+      slice: 'SliceOptions',
+      sort: '[SortOptions]',
+      operator: '[OperatorOptions]',
+      search: 'SearchOptions',
+    },
+    PaginateOptions: {
       page: 'Int',
       limit: 'Int',
     },
+    SliceOptions: {
+      start: 'Int',
+      end: 'Int',
+      limit: 'Int',
+    },
+    SortOptions: {
+      field: 'String',
+      order: 'SortOrderEnum',
+    },
+    SortOrderEnum: enumOf('ASC', 'DESC'),
+    OperatorOptions: {
+      kind: 'OperatorKindEnum',
+      field: 'String',
+      value: 'String',
+    },
+    OperatorKindEnum: enumOf('GTE', 'LTE', 'NE', 'LIKE'),
+    SearchOptions: {
+      q: 'String',
+    },
+
     PaginationLinks: {
       first: 'PageLimitPair',
       prev: 'PageLimitPair',
       next: 'PageLimitPair',
       last: 'PageLimitPair',
     },
-    PageMetaData: {
-      totalCount: 'Int',
+    PageLimitPair: {
+      page: 'Int',
+      limit: 'Int',
+    },
+    PageMetadata: {
+      totalCount: 'Int!',
     },
 
-    OperatorKindEnum: enumOf('GTE', 'LTE', 'NE', 'LIKE'),
-    PaginateOptions: {
-      'page?': 'Int!',
-      'limit?': 'Int!',
+    Album: {
+      id: 'ID',
+      title: 'String',
+      user: 'User',
+      photos: [{ options: 'PageQueryOptions' }, 'PhotosPage!'],
     },
-    SliceOptions: {
-      'start?': 'Int!',
-      'end?': 'Int!',
-      'limit?': 'Int!',
+    AlbumsPage: {
+      data: '[Album!]!',
+      links: 'PaginationLinks',
+      meta: 'PageMetadata!',
     },
-    SortOptions: {
-      'field?': 'String!',
-      'order?': 'String!',
+    CreateAlbumInput: {
+      title: 'String!',
+      userId: 'ID!',
     },
-    OperatorOptions: {
-      'kind?': 'OperatorKindEnum!',
-      'field?': 'String!',
-      'value?': 'String!',
-    },
-    SearchOptions: {
-      'q?': 'String!',
-    },
-    PageQueryOptions: {
-      'paginate?': 'PaginateOptions!',
-      'slice?': 'SliceOptions!',
-      'sort?': 'SortOptions!',
-      'operator?': 'OperatorOptions!',
-      'search?': 'SearchOptions!',
+    UpdateAlbumInput: {
+      title: 'String',
+      userId: 'ID',
     },
 
-    Geo: {
-      lat: 'Float',
-      lng: 'Float',
-    },
-    Address: {
-      street: 'String',
-      suite: 'String',
-      city: 'String',
-      zipcode: 'String',
-      geo: 'Geo',
-    },
-    Company: {
-      name: 'String',
-      catchPhrase: 'String',
-      bs: 'String',
-    },
     Comment: {
       id: 'ID',
       name: 'String',
       email: 'String',
       body: 'String',
+      post: 'Post',
     },
     CommentsPage: {
-      data: '[Comment!]',
+      data: '[Comment!]!',
       links: 'PaginationLinks',
-      meta: 'PageMetaData',
+      meta: 'PageMetadata',
     },
+    CreateCommentInput: {
+      name: 'String!',
+      email: 'String!',
+      body: 'String!',
+    },
+    UpdateCommentInput: {
+      name: 'String',
+      email: 'String',
+      body: 'String',
+    },
+
+    Photo: {
+      id: 'ID',
+      title: 'String',
+      url: 'String',
+      thumbnailUrl: 'String',
+      album: 'Album',
+    },
+    PhotosPage: {
+      data: '[Photo!]!',
+      links: 'PaginationLinks',
+      meta: 'PageMetadata!',
+    },
+    CreatePhotoInput: {
+      title: 'String!',
+      url: 'String!',
+      thumbnailUrl: 'String!',
+    },
+    UpdatePhotoInput: {
+      title: 'String',
+      url: 'String',
+      thumbnailUrl: 'String',
+    },
+
     Post: {
       id: 'ID',
       title: 'String',
       body: 'String',
-      comments: 'CommentsPage',
+      user: 'User',
+      comments: [{ options: 'PageQueryOptions' }, 'CommentsPage'],
     },
     PostsPage: {
-      data: '[Post!]',
+      data: '[Post!]!',
       links: 'PaginationLinks',
-      meta: 'PageMetaData',
+      meta: 'PageMetadata!',
     },
+    CreatePostInput: {
+      title: 'String!',
+      body: 'String!',
+    },
+    UpdatePostInput: {
+      title: 'String',
+      body: 'String',
+    },
+
+    Todo: {
+      id: 'ID',
+      title: 'String',
+      completed: 'Boolean',
+      user: 'User',
+    },
+    TodosPage: {
+      data: '[Todo!]!',
+      links: 'PaginationLinks',
+      meta: 'PageMetadata!',
+    },
+    CreateTodoInput: {
+      title: 'String!',
+      completed: 'Boolean!',
+    },
+    UpdateTodoInput: {
+      title: 'String',
+      completed: 'Boolean',
+    },
+
     User: {
       id: 'ID',
       name: 'String',
@@ -99,30 +207,64 @@ describe('client', () => {
       phone: 'String',
       website: 'String',
       company: 'Company',
-      posts: 'PostsPage',
+      posts: [{ options: 'PageQueryOptions' }, 'PostsPage'],
+      albums: [{ options: 'PageQueryOptions' }, 'AlbumsPage'],
+      todos: [{ options: 'PageQueryOptions' }, 'TodosPage'],
     },
-
-    CreatePostInput: {
-      title: 'String!',
-      body: 'String!',
+    UsersPage: {
+      data: '[User!]!',
+      links: 'PaginationLinks',
+      meta: 'PageMetadata!',
     },
-    UpdatePostInput: {
-      'title?': 'String!',
-      'body?': 'String!',
+    Address: {
+      street: 'String',
+      suite: 'String',
+      city: 'String',
+      zipcode: 'String',
+      geo: 'Geo',
     },
-
-    Query: {
-      _: ['=>', 'Int'],
-      post: [{ id: 'ID!' }, '=>', 'Post'],
-      user: [{ id: 'ID!' }, '=>', 'User'],
-      posts: [{ 'options?': 'PageQueryOptions!' }, '=>', 'PostsPage'],
+    AddressInput: {
+      street: 'String',
+      suite: 'String',
+      city: 'String',
+      zipcode: 'String',
+      geo: 'GeoInput',
     },
-
-    Mutation: {
-      _: ['=>', 'Int'],
-      createPost: [{ input: 'CreatePostInput!' }, '=>', 'Post'],
-      updatePost: [{ id: 'ID!', input: 'UpdatePostInput!' }, '=>', 'Post'],
-      deletePost: [{ id: 'ID!' }, '=>', 'Boolean'],
+    Geo: {
+      lat: 'Float!',
+      lng: 'Float!',
+    },
+    GeoInput: {
+      lat: 'Float',
+      lng: 'Float',
+    },
+    Company: {
+      name: 'String',
+      catchPhrase: 'String',
+      bs: 'String',
+    },
+    CompanyInput: {
+      name: 'String',
+      catchPhrase: 'String',
+      bs: 'String',
+    },
+    CreateUserInput: {
+      name: 'String!',
+      username: 'String!',
+      email: 'String!',
+      address: 'AddressInput',
+      phone: 'String',
+      website: 'String',
+      company: 'CompanyInput',
+    },
+    UpdateUserInput: {
+      name: 'String',
+      username: 'String',
+      email: 'String',
+      address: 'AddressInput',
+      phone: 'String',
+      website: 'String',
+      company: 'CompanyInput',
     },
   });
 
@@ -284,5 +426,93 @@ describe('client', () => {
   it('should delete a post', async () => {
     const deleted = await mutation('deletePost').byId('101');
     expect(deleted).toBe(true);
+  });
+
+  it('should get albums with photos by page', async () => {
+    const albums = await query('albums')
+      .select((albums) => [
+        albums.data((album) => [
+          album.id,
+          album.title,
+          album.user((user) => [user.id, user.username, user.email]),
+          album.photos(
+            {
+              options: {
+                paginate: { page: 2, limit: 3 },
+                sort: [{ field: 'title', order: 'ASC' }],
+              },
+            },
+            (photos) => [
+              photos.data((photo) => [photo.id, photo.title]),
+              photos.meta((meta) => [meta.totalCount]),
+            ],
+          ),
+        ]),
+        albums.meta((meta) => [meta.totalCount]),
+      ])
+      .byOptions({ paginate: { page: 3, limit: 2 } });
+    expect(albums).toEqual({
+      data: [
+        {
+          id: '5',
+          title: 'eaque aut omnis a',
+          user: {
+            id: '1',
+            username: 'Bret',
+            email: 'Sincere@april.biz',
+          },
+          photos: {
+            data: [
+              {
+                id: '244',
+                title: 'aut doloribus quia unde quia',
+              },
+              {
+                id: '204',
+                title: 'beatae est vel tenetur',
+              },
+              {
+                id: '207',
+                title: 'culpa qui quos reiciendis aut nostrum et id temporibus',
+              },
+            ],
+            meta: {
+              totalCount: 50,
+            },
+          },
+        },
+        {
+          id: '6',
+          title: 'natus impedit quibusdam illo est',
+          user: {
+            id: '1',
+            username: 'Bret',
+            email: 'Sincere@april.biz',
+          },
+          photos: {
+            data: [
+              {
+                id: '294',
+                title: 'consequuntur qui et culpa eveniet porro quis',
+              },
+              {
+                id: '275',
+                title: 'consequuntur quo fugit non',
+              },
+              {
+                id: '259',
+                title: 'delectus molestias aut sint fugiat laudantium sequi praesentium',
+              },
+            ],
+            meta: {
+              totalCount: 50,
+            },
+          },
+        },
+      ],
+      meta: {
+        totalCount: 100,
+      },
+    });
   });
 });

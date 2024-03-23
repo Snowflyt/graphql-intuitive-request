@@ -11,12 +11,12 @@ graphql-intuitive-request provides an **intuitive** and **TS-friendly** way to w
 ```typescript
 import { createClient, enumOf } from 'graphql-intuitive-request';
 
-const { query } = createClient('https://example.com/graphql').withSchema({
+const { mutation, query } = createClient('https://example.com/graphql').withSchema({
   User: {
     id: 'Int!',
     username: 'String!',
     email: 'String',
-    posts: '[Post!]!',
+    posts: [{ 'first?': 'Int!' }, '[Post!]!'], // Field with arguments
   },
   Post: {
     id: 'Int!',
@@ -26,11 +26,14 @@ const { query } = createClient('https://example.com/graphql').withSchema({
     author: 'User!',
     coAuthors: '[User!]!',
   },
-  PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
+  PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'), // Enum type
 
   Query: {
     users: ['=>', '[User!]!'],
     post: [{ id: 'Int!' }, '=>', 'Post'],
+  },
+  Mutation: {
+    removePost: [{ id: 'Int!' }, '=>', 'Boolean!'],
   },
 });
 
@@ -49,7 +52,7 @@ const { query } = createClient('https://example.com/graphql').withSchema({
 const allUsers = await query('users').select((user) => [
   user.id,
   user.username,
-  user.posts((post) => [
+  user.posts({ first: 10 }, (post) => [
     post.title,
     post.status,
     post.coAuthors((author) => [author.id, author.username]),
@@ -73,8 +76,9 @@ const post = await query('post', { id: 1 }).select((post) => [
   post.author((author) => [author.username]),
   post.coAuthors((author) => [author.username]),
 ]);
+await mutation('removePost').byId(1);
 // ... or use `.by` method and its variants
-const post = await query('post')
+const post2 = await query('post')
   .select((post) => [
     post.title,
     post.status,
@@ -102,6 +106,35 @@ Array<{
 which is **exactly** what we want, not just a generic object like `User[]`!
 
 ![Exact Type Inference with TypeScript](./docs/img/exact-type-inference.png)
+
+The schema is equivalent to the following GraphQL schema:
+
+```graphql
+type Query {
+  users: [User!]!
+  post(id: Int!): Post
+}
+
+type User {
+  id: Int!
+  username: String!
+  email: String
+  posts(first: Int): [Post!]!
+}
+
+type Post {
+  id: Int!
+  status: PostStatus!
+  title: String!
+  content: String!
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+```
 
 The syntax is almost the same as the one used in GraphQL:
 
@@ -223,6 +256,106 @@ setTimeout(async () => {
 ```
 
 For more details, you can check [the relevant test file](./test/client.spec.ts).
+
+### Query field with arguments
+
+graphql-intuitive-request supports querying fields with arguments. Say you have the following GraphQL schema:
+
+```graphql
+type Query {
+  user(id: Int!): User
+}
+
+type User {
+  id: Int!
+  name: String!
+  posts(status: PostStatus): [Post!]!
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+type Post {
+  id: Int!
+  title: String!
+  content: String!
+}
+```
+
+How to represent `posts(status: PostStatus)` in the `withSchema` function? You can represent such a field with arguments as a 2-element tuple, where the first element is an object representing the input type of the field, and the second element is the return type of the field.
+
+```typescript
+import { createClient, enumOf } from 'graphql-intuitive-request';
+
+const { query } = createClient('https://example.com/graphql').withSchema({
+  User: {
+    id: 'Int!',
+    name: 'String!',
+    posts: [{ status: 'PostStatus' }, '[Post!]!'],
+  },
+  Post: {
+    id: 'Int!',
+    title: 'String!',
+    content: 'String!',
+  },
+  PostStatus: enumOf('DRAFT', 'PUBLISHED', 'ARCHIVED'),
+
+  Query: {
+    user: [{ id: 'Int!' }, '=>', 'User'],
+  },
+});
+```
+
+Note that we use `[{ status: 'PostStatus' }, '[Post!]!']` instead of `['{ status: PostStatus }', '=>', '[Post!]!']` (which is used in operation definitions like `Query`). This is to make operation definitions more concise and readable.
+
+Then you can query the `posts` field like this:
+
+```typescript
+const user = await query('user', { id: 1 }).select((user) => [
+  user.id,
+  user.name,
+  user.posts({ status: 'PUBLISHED' }, (post) => [post.id, post.title]),
+]);
+```
+
+This is equivalent to the following GraphQL query:
+
+```graphql
+query user($id: Int!, $postStatus: PostStatus) {
+  user(id: $id) {
+    id
+    name
+    posts(status: $postStatus) {
+      id
+      title
+    }
+  }
+}
+```
+
+...with the following variables:
+
+```json
+{
+  "id": 1,
+  "postStatus": "PUBLISHED"
+}
+```
+
+Since all arguments of `posts` are optional, you can still query the `posts` field without arguments:
+
+```typescript
+const user = await query('user', { id: 1 }).select((user) => [
+  user.id,
+  user.name,
+  user.posts((post) => [post.id, post.title]),
+]);
+```
+
+Whether you can omit arguments or not is validated at compile time, so you can be sure that you will not forget to pass required arguments at runtime.
 
 ### Support for subscriptions
 

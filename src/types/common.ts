@@ -170,6 +170,11 @@ export type RequiredFieldsCount<I> = Obj.Length<{
 }>;
 
 /**
+ * Get the count of optional keys from an object.
+ */
+export type OptionalKeyCount<O> = TuplifyLiteralStringUnion<_OptionalKeyOf<O>>['length'];
+
+/**
  * Merge two objects together. Optional keys are not considered.
  */
 export type SimpleMerge<L, R> = _Id<{
@@ -231,6 +236,8 @@ export namespace Obj {
 
   export type IfEmpty<O, T, F = O> = IsEmpty<O> extends true ? T : F;
   export type IfNotEmpty<O, T, F = O> = IsEmpty<O> extends true ? F : T;
+
+  export type IsAllOptional<O> = Length<O> extends OptionalKeyCount<O> ? true : false;
 }
 
 /********************

@@ -38,10 +38,12 @@ export interface BaseEnvironment {
   Boolean: boolean;
 }
 
-export type TypeRepresentation = Record<string, string> | string;
-export type TypeCollection = Record<string, TypeRepresentation | GraphQLEnum>;
-export type FunctionRepresentation = ['=>', string] | [Record<string, string>, '=>', string];
-export type FunctionCollection = Record<string, FunctionRepresentation>;
+export type ObjectDefinition = Record<string, string | [Record<string, string>, string]>;
+export type ScalarDefinition = string;
+export type TypeDefinition = ObjectDefinition | ScalarDefinition | GraphQLEnum;
+export type TypeCollection = Record<string, TypeDefinition>;
+export type OperationDefinition = ['=>', string] | [Record<string, string>, '=>', string];
+export type OperationCollection = Record<string, OperationDefinition>;
 
 export type WrapByVariant<T, TVariant extends string> = TVariant extends 'NULLABLE-LIST-NULLABLE'
   ? Array<T | null> | null

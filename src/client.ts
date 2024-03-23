@@ -11,7 +11,7 @@ import { capitalize, mapObject, mapObjectValues, omit, pick, requiredKeysCount }
 import type { schema } from './types';
 import type { MutationFunction, QueryFunction, SubscriptionFunction } from './types/client-tools';
 import type { Obj, QueryPromise, SimpleSpread, SubscriptionResponse } from './types/common';
-import type { FunctionCollection, TypeCollection } from './types/graphql-types';
+import type { OperationCollection, TypeCollection } from './types/graphql-types';
 import type { QueryNode } from './types/query-node';
 import type { ValidateSchema } from './types/validator';
 import type { Client as WSClient, ClientOptions as WSClientOptions } from 'graphql-ws';
@@ -59,24 +59,24 @@ const _createClient = <
   const _rawTypes = rawTypes as
     | TypeCollection
     | {
-        Query?: FunctionCollection;
-        Mutation?: FunctionCollection;
-        Subscription?: FunctionCollection;
+        Query?: OperationCollection;
+        Mutation?: OperationCollection;
+        Subscription?: OperationCollection;
       };
 
   const $ = omit(_rawTypes, 'Query', 'Mutation', 'Subscription') as TypeCollection;
 
   type NormalizedOperations = ReturnType<typeof normalizeOperations>;
-  const normalizeOperations = (collection: FunctionCollection) =>
+  const normalizeOperations = (collection: OperationCollection) =>
     mapObjectValues(collection, (value) =>
       value.length === 3
         ? { inputType: value[0], returnType: value[2] }
         : { inputType: {}, returnType: value[1] },
     );
 
-  const queries = normalizeOperations((_rawTypes.Query as FunctionCollection) ?? {});
-  const mutations = normalizeOperations((_rawTypes.Mutation as FunctionCollection) ?? {});
-  const subscriptions = normalizeOperations((_rawTypes.Subscription as FunctionCollection) ?? {});
+  const queries = normalizeOperations((_rawTypes.Query as OperationCollection) ?? {});
+  const mutations = normalizeOperations((_rawTypes.Mutation as OperationCollection) ?? {});
+  const subscriptions = normalizeOperations((_rawTypes.Subscription as OperationCollection) ?? {});
 
   const typeParser = createTypeParser($);
   const compileOperations = (operations: NormalizedOperations) =>
@@ -98,10 +98,39 @@ const _createClient = <
     method: TMethod,
     operationName: string,
     inputType: Record<string, string>,
+    returnType: string,
     input: Record<string, any>,
-    ast: readonly QueryNode[],
+    ast: readonly QueryNode[] | (() => readonly QueryNode[]),
   ): TMethod extends 'subscription' ? SubscriptionResponse<any> : QueryPromise<any> => {
-    const queryString = buildQueryString(method, operationName, inputType, ast);
+    const { queryString, variables } = (() => {
+      let cached: ReturnType<typeof buildQueryString> | null = null;
+      return {
+        queryString: () => {
+          if (cached) return cached.queryString;
+          cached = buildQueryString(
+            method,
+            operationName,
+            inputType,
+            returnType,
+            $,
+            typeof ast === 'function' ? ast() : ast,
+          );
+          return cached.queryString;
+        },
+        variables: () => {
+          if (cached) return cached.variables;
+          cached = buildQueryString(
+            method,
+            operationName,
+            inputType,
+            returnType,
+            $,
+            typeof ast === 'function' ? ast() : ast,
+          );
+          return cached.variables;
+        },
+      };
+    })();
 
     if (method === 'subscription')
       return {
@@ -111,7 +140,7 @@ const _createClient = <
           onComplete?: () => void,
         ) =>
           wsClient.subscribe(
-            { query: queryString, variables: input },
+            { query: queryString(), variables: { ...input, ...variables() } },
             {
               next: (value) => {
                 if (value.errors) onError?.(value.errors);
@@ -125,17 +154,22 @@ const _createClient = <
               },
             },
           ),
-        toQueryString: () => queryString,
-        toRequestBody: () => ({ query: queryString, variables: input }),
+        toQueryString: () => queryString(),
+        toRequestBody: () => ({ query: queryString(), variables: { ...input, ...variables() } }),
       } as any;
 
     const result: any = Promise.resolve(null).then(() => {
       if (cancelledPromises.has(result)) return;
 
-      return requestClient.request(queryString, input).then((data) => (data as any)[operationName]);
+      return requestClient
+        .request(queryString(), { ...input, ...variables() })
+        .then((data) => (data as any)[operationName]);
     });
-    result.toQueryString = () => queryString;
-    result.toRequestBody = () => ({ query: queryString, variables: input });
+    result.toQueryString = () => queryString();
+    result.toRequestBody = () => ({
+      query: queryString(),
+      variables: { ...input, ...variables() },
+    });
     return result;
   };
 
@@ -156,16 +190,18 @@ const _createClient = <
 
       let result: any = {};
       if (!operation.hasInput || input !== undefined) {
-        const ast = operation.isReturnTypeScalar
-          ? []
-          : parseSelector(createAllSelector(operation.returnType, $));
+        const ast = () =>
+          operation.isReturnTypeScalar
+            ? []
+            : parseSelector(createAllSelector(operation.returnType, $));
         result =
           input === undefined
-            ? buildOperationResponse(method, operationName, {}, {}, ast)
+            ? buildOperationResponse(method, operationName, {}, operation.returnType, {}, ast)
             : buildOperationResponse(
                 method,
                 operationName,
                 pick(operation.inputType, ...Object.keys(input)),
+                operation.returnType,
                 input,
                 ast,
               );
@@ -175,21 +211,26 @@ const _createClient = <
 
       if (operation.hasInput && input === undefined) {
         if (requiredKeysCount(rawOperation.inputType) === 0) {
-          const ast = operation.isReturnTypeScalar
-            ? []
-            : parseSelector(createAllSelector(operation.returnType, $));
-          result = buildOperationResponse(method, operationName, {}, {}, ast);
+          // eslint-disable-next-line sonarjs/no-identical-functions
+          const ast = () =>
+            operation.isReturnTypeScalar
+              ? []
+              : parseSelector(createAllSelector(operation.returnType, $));
+          result = buildOperationResponse(method, operationName, {}, operation.returnType, {}, ast);
         }
 
         result.by = (input: any) => {
           cancelledPromises.add(result);
-          const ast = operation.isReturnTypeScalar
-            ? []
-            : parseSelector(createAllSelector(operation.returnType, $));
+          // eslint-disable-next-line sonarjs/no-identical-functions
+          const ast = () =>
+            operation.isReturnTypeScalar
+              ? []
+              : parseSelector(createAllSelector(operation.returnType, $));
           return buildOperationResponse(
             method,
             operationName,
             pick(operation.inputType, ...Object.keys(input)),
+            operation.returnType,
             input,
             ast,
           );
@@ -213,11 +254,12 @@ const _createClient = <
           cancelledPromises.add(result);
           const ast = parseSelector(selector);
           return input === undefined
-            ? buildOperationResponse(method, operationName, {}, {}, ast)
+            ? buildOperationResponse(method, operationName, {}, operation.returnType, {}, ast)
             : buildOperationResponse(
                 method,
                 operationName,
                 pick(operation.inputType, ...Object.keys(input)),
+                operation.returnType,
                 input,
                 ast,
               );
@@ -228,7 +270,7 @@ const _createClient = <
           const by = result.by;
           const select = result.select;
           const ast = parseSelector(selector);
-          result = buildOperationResponse(method, operationName, {}, {}, ast);
+          result = buildOperationResponse(method, operationName, {}, operation.returnType, {}, ast);
           if (by) result.by = by;
           result.select = select;
         }
@@ -241,6 +283,7 @@ const _createClient = <
               method,
               operationName,
               pick(operation.inputType, ...Object.keys(input)),
+              operation.returnType,
               input,
               ast,
             );

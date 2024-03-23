@@ -1,8 +1,9 @@
 import { createTypeParser } from './type-parser';
+import { requiredKeysCount } from './utils';
 
 import type { ObjectSelector, ObjectSelectorBuilder } from './types/ast-builder';
 import type { ParseNodes } from './types/ast-parser';
-import type { TypeCollection } from './types/graphql-types';
+import type { ObjectDefinition, TypeCollection } from './types/graphql-types';
 import type { QueryNode } from './types/query-node';
 
 const createBuilder = <T>(): ObjectSelectorBuilder<T> =>
@@ -10,11 +11,18 @@ const createBuilder = <T>(): ObjectSelectorBuilder<T> =>
     {},
     {
       get: (_, prop) => {
-        const result: any = (selector: any) => {
+        const result: any = (
+          ...as:
+            | [input: Record<string, string>, selector: ObjectSelector<any, any>]
+            | [selector: ObjectSelector<any, any>]
+        ) => {
+          const [args, selector] = as.length === 1 ? [{}, as[0]] : as;
+          result.args = args;
           result.children = selector(createBuilder());
           return result;
         };
         result.key = prop;
+        result.args = {};
         result.children = null;
         return result;
       },
@@ -27,12 +35,16 @@ export const createAllSelector = <T extends string, $ extends TypeCollection>(
 ): any => {
   const parser = createTypeParser($);
 
-  const spread = (coreType: string) => $[coreType] as Record<string, string>;
+  const spread = (coreType: string) => $[coreType] as ObjectDefinition;
 
   const buildSelector = (coreType: string) => (o: any) => {
     return Object.entries(spread(coreType)).map(([key, value]) => {
-      const coreType = parser.extractCoreType(value);
-      return parser.isScalarType(coreType) ? o[key] : o[key](buildSelector(coreType));
+      if (typeof value !== 'string' && requiredKeysCount(value[0]) > 0)
+        throw new Error(
+          `All input fields of '${coreType}.${key}' must be optional to automatically select all fields`,
+        );
+      const _coreType = parser.extractCoreType(typeof value === 'string' ? value : value[1]);
+      return parser.isScalarType(_coreType) ? o[key] : o[key](buildSelector(_coreType));
     });
   };
 

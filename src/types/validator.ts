@@ -83,7 +83,7 @@ namespace Scanner {
             [TState['last']] extends [never]
               ? C extends '['
                 ? { hasUnclosedLeftBracket: true }
-                : C extends '_' | Letter | Digit
+                : C extends '_' | Letter
                 ? { coreType: C }
                 : { error: `Unexpected character '${C}'` }
               : TState['last'] extends ']'
@@ -113,7 +113,7 @@ namespace Scanner {
                       ? null
                       : `'${TState['coreType']}' is unresolvable`;
                   }
-              : C extends Letter | Digit
+              : C extends '_' | Letter | Digit
               ? { coreType: `${TState['coreType']}${C}` }
               : { error: `Unexpected character '${C}'` }
           >
@@ -160,7 +160,7 @@ export type ValidateOperation<TDef, $> = TDef extends readonly ['=>', infer TOut
   ? TOutput extends BadDefinitionType | object
     ? [TInput, '=>', `Output type must be a string (was ${DomainOf<TOutput>})`]
     : [
-        { [P in keyof TInput]: ValidateDefinition<TInput[P], $, true> },
+        { [P in keyof TInput]: ValidateDefinition<TInput[P], $, true, true> },
         '=>',
         ValidateString<TOutput & string, $, { isReturnType: true }>,
       ]
@@ -168,18 +168,36 @@ export type ValidateOperation<TDef, $> = TDef extends readonly ['=>', infer TOut
   ? [`Input type must be a plain object (was ${DomainOf<TInput>})`, '=>', TOutput]
   : `Operation definition must be either ['=>', Output] or [Input, '=>', Output]`;
 
-export type ValidateDefinition<TDef, $, TNested = false> = TDef extends BadDefinitionType
+type ValidateFieldWithArgs<TInput, TOutput, $> = TOutput extends BadDefinitionType | object
+  ? [TInput, `Output type must be a string (was ${DomainOf<TOutput>})`]
+  : [
+      { [P in keyof TInput]: ValidateDefinition<TInput[P], $, true, true> },
+      ValidateString<TOutput & string, $>,
+    ];
+
+export type ValidateDefinition<
+  TDef,
+  $,
+  TNested extends boolean = false,
+  TIsInput extends boolean = false,
+> = TDef extends BadDefinitionType
   ? TNested extends true
-    ? `Field definitions must be strings (was ${DomainOf<TDef>})`
+    ? TIsInput extends true
+      ? `Field definitions must be strings (was ${DomainOf<TDef>})`
+      : `Field definitions must be strings or 2-element tuples (was ${DomainOf<TDef>})`
     : `Type definitions must be strings, enums or plain objects (was ${DomainOf<TDef>})`
   : TDef extends readonly unknown[]
   ? TNested extends true
-    ? `Field definitions must be strings (was array)`
+    ? TIsInput extends true
+      ? `Field definitions must be strings (was array)`
+      : TDef extends readonly [infer TInput extends Record<PropertyKey, unknown>, infer TOutput]
+      ? ValidateFieldWithArgs<TInput, TOutput, $>
+      : TDef extends readonly [infer TInput, infer TOutput]
+      ? [`Input type must be a plain object (was ${DomainOf<TInput>})`, TOutput]
+      : `Field definitions must be strings or 2-element tuples (was array)`
     : `Type definitions must be strings, enums or plain objects (was array)`
   : TDef extends string
-  ? TDef extends SimpleVariantOf<StringKeyOf<$>>
-    ? TDef
-    : ValidateString<TDef, $>
+  ? ValidateString<TDef, $>
   : TDef extends GraphQLEnum
   ? TDef
   : IsUnknown<TDef> extends true
